@@ -13,6 +13,9 @@ export class GameScene extends Phaser.Scene {
   private keyA!: Phaser.Input.Keyboard.Key;
   private keyD!: Phaser.Input.Keyboard.Key;
 
+  private pointerActive = false;
+  private pointerTargetX = 0;
+
   private lastFired = 0;
   private enemyDir = 1;
   private score = 0;
@@ -57,9 +60,41 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(1, 0)
       .setDepth(10);
 
+    this.setupTouchControls();
+    this.showStartHint();
+
     this.physics.add.overlap(this.bullets, this.enemies, this.onBulletHitsEnemy, undefined, this);
     this.physics.add.overlap(this.enemyBullets, this.player, this.onPlayerHit, undefined, this);
     this.physics.add.overlap(this.enemies, this.player, this.onPlayerHit, undefined, this);
+  }
+
+  // Touch: drag finger to move the ship; it auto-fires while held.
+  private setupTouchControls(): void {
+    this.pointerActive = false;
+    this.input.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.pointerActive = true;
+      this.pointerTargetX = p.x;
+    });
+    this.input.on('pointermove', (p: Phaser.Input.Pointer) => {
+      if (p.isDown) this.pointerTargetX = p.x;
+    });
+    this.input.on('pointerup', () => {
+      this.pointerActive = false;
+    });
+  }
+
+  // Fading hint so players know how to control the ship.
+  private showStartHint(): void {
+    const hint = this.add
+      .text(GAME.width / 2, GAME.height - 130, 'Веди пальцем — корабель стріляє сам', {
+        fontFamily: 'monospace',
+        fontSize: '14px',
+        color: '#ffffff',
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(10);
+    this.tweens.add({ targets: hint, alpha: 0, delay: 2500, duration: 1200 });
   }
 
   update(time: number, delta: number): void {
@@ -76,7 +111,15 @@ export class GameScene extends Phaser.Scene {
   private handlePlayerMovement(): void {
     const left = this.cursors.left?.isDown || this.keyA.isDown;
     const right = this.cursors.right?.isDown || this.keyD.isDown;
-    if (left) {
+    if (this.pointerActive) {
+      // Follow the finger horizontally.
+      const dx = this.pointerTargetX - this.player.x;
+      if (Math.abs(dx) < 4) {
+        this.player.setVelocityX(0);
+      } else {
+        this.player.setVelocityX(Phaser.Math.Clamp(dx * 12, -PLAYER.speed, PLAYER.speed));
+      }
+    } else if (left) {
       this.player.setVelocityX(-PLAYER.speed);
     } else if (right) {
       this.player.setVelocityX(PLAYER.speed);
@@ -86,7 +129,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleShooting(time: number): void {
-    const wantsToFire = this.fireKey.isDown || this.cursors.up?.isDown;
+    const wantsToFire = this.fireKey.isDown || this.cursors.up?.isDown || this.pointerActive;
     if (wantsToFire && time > this.lastFired) {
       const bullet = this.bullets.get(this.player.x, this.player.y - 20) as
         | Phaser.Physics.Arcade.Image
