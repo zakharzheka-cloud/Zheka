@@ -3,10 +3,12 @@ import { GAME } from '../config';
 
 interface GameOverData {
   score: number;
+  best: number;
 }
 
 export class GameOverScene extends Phaser.Scene {
   private finalScore = 0;
+  private bestScore = 0;
 
   constructor() {
     super('GameOverScene');
@@ -14,6 +16,7 @@ export class GameOverScene extends Phaser.Scene {
 
   init(data: GameOverData): void {
     this.finalScore = data.score ?? 0;
+    this.bestScore = data.best ?? 0;
   }
 
   create(): void {
@@ -35,6 +38,15 @@ export class GameOverScene extends Phaser.Scene {
         fontFamily: 'monospace',
         fontSize: '24px',
         color: '#9fe0ff',
+      })
+      .setOrigin(0.5);
+
+    const isRecord = this.finalScore >= this.bestScore && this.finalScore > 0;
+    this.add
+      .text(cx, GAME.height / 2 + 34, isRecord ? '★ NEW BEST ★' : `BEST  ${this.bestScore}`, {
+        fontFamily: 'monospace',
+        fontSize: '18px',
+        color: isRecord ? '#ffd400' : '#ffd98c',
       })
       .setOrigin(0.5);
 

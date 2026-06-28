@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { GAME, PLAYER, BULLET, ENEMY } from '../config';
+import { hapticHit, hapticHurt, saveHiScore, loadHiScore } from '../telegram';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Image;
@@ -19,6 +20,7 @@ export class GameScene extends Phaser.Scene {
   private lastFired = 0;
   private enemyDir = 1;
   private score = 0;
+  private hiScore = 0;
   private lives = PLAYER.startLives;
   private scoreText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
@@ -32,6 +34,8 @@ export class GameScene extends Phaser.Scene {
     this.lives = PLAYER.startLives;
     this.enemyDir = 1;
     this.lastFired = 0;
+
+    loadHiScore((v) => (this.hiScore = v));
 
     // NYC backdrop: night sky + skyline silhouette anchored to the street.
     this.add.image(GAME.width / 2, GAME.height / 2, 'sky').setDepth(-20);
@@ -210,6 +214,7 @@ export class GameScene extends Phaser.Scene {
     this.score += ENEMY.scorePerKill;
     this.scoreText.setText(`SCORE ${this.score}`);
     this.spawnExplosion(e.x, e.y);
+    hapticHit();
   };
 
   private onPlayerHit: Phaser.Types.Physics.Arcade.ArcadePhysicsCallback = (_player, other) => {
@@ -223,6 +228,7 @@ export class GameScene extends Phaser.Scene {
     this.livesText.setText(`LIVES ${Math.max(this.lives, 0)}`);
     this.cameras.main.shake(150, 0.01);
     this.spawnExplosion(this.player.x, this.player.y);
+    hapticHurt();
     if (this.lives <= 0) {
       this.endGame();
     }
@@ -257,7 +263,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private endGame(): void {
-    this.scene.start('GameOverScene', { score: this.score });
+    const best = Math.max(this.hiScore, this.score);
+    if (this.score > this.hiScore) saveHiScore(this.score);
+    this.scene.start('GameOverScene', { score: this.score, best });
   }
 
   // --- Background ---

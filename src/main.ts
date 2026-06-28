@@ -1,8 +1,11 @@
 import Phaser from 'phaser';
 import { GAME } from './config';
+import { initTelegram } from './telegram';
 import { BootScene } from './scenes/BootScene';
 import { GameScene } from './scenes/GameScene';
 import { GameOverScene } from './scenes/GameOverScene';
+
+initTelegram(GAME.backgroundColor);
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
