@@ -12,13 +12,11 @@ const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.15;
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMappingExposure = 1.1;
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x05070f);
-scene.fog = new THREE.Fog(0x070b1c, 30, 110);
+scene.fog = new THREE.Fog(0x070b1c, 28, 105);
 
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 400);
 camera.position.set(0, 4.2, 8);
@@ -28,17 +26,16 @@ initTelegram('#05070f');
 
 // ---- Lights ----------------------------------------------------------------
 
-scene.add(new THREE.AmbientLight(0x33405f, 0.6));
-const moon = new THREE.DirectionalLight(0x9fb4ff, 0.5);
+scene.add(new THREE.AmbientLight(0x2a3550, 0.55));
+const moon = new THREE.DirectionalLight(0x9fb4ff, 0.45);
 moon.position.set(-20, 40, 10);
 scene.add(moon);
 
-// A few coloured neon lights that travel with the world and recycle.
 const NEON_COLORS = [0xff2d95, 0x00e5ff, 0xffb300, 0x7cff5a, 0xa05cff];
 const neonLights: THREE.PointLight[] = [];
-for (let i = 0; i < 6; i++) {
-  const light = new THREE.PointLight(NEON_COLORS[i % NEON_COLORS.length], 60, 40, 2);
-  light.position.set(i % 2 === 0 ? -7 : 7, 4 + Math.random() * 8, -i * 18);
+for (let i = 0; i < 3; i++) {
+  const light = new THREE.PointLight(NEON_COLORS[i % NEON_COLORS.length], 55, 38, 2);
+  light.position.set(i % 2 === 0 ? -7 : 7, 5 + Math.random() * 7, -i * 26);
   scene.add(light);
   neonLights.push(light);
 }
@@ -51,32 +48,65 @@ const reflector = new Reflector(new THREE.PlaneGeometry(60, 400), {
   color: 0x0a0d14,
 });
 reflector.rotateX(-Math.PI / 2);
-reflector.position.y = 0;
 scene.add(reflector);
 
-// Glossy dark overlay so the mirror reads as wet asphalt, not glass.
 const street = new THREE.Mesh(
   new THREE.PlaneGeometry(60, 400),
   new THREE.MeshStandardMaterial({
     color: 0x0c1018,
-    roughness: 0.35,
-    metalness: 0.7,
+    roughness: 0.3,
+    metalness: 0.75,
     transparent: true,
-    opacity: 0.55,
+    opacity: 0.5,
   }),
 );
 street.rotateX(-Math.PI / 2);
 street.position.y = 0.01;
 scene.add(street);
 
-// Emissive lane markings that stream toward the camera (sense of speed).
+// Raised sidewalks down both sides.
+for (const side of [-1, 1]) {
+  const walk = new THREE.Mesh(
+    new THREE.BoxGeometry(4, 0.3, 400),
+    new THREE.MeshStandardMaterial({ color: 0x14181f, roughness: 0.95 }),
+  );
+  walk.position.set(side * 7, 0.15, 0);
+  scene.add(walk);
+}
+
+// Emissive lane markings streaming toward the camera (sense of speed).
 const laneMat = new THREE.MeshBasicMaterial({ color: 0xffe08a });
 const lanes: THREE.Mesh[] = [];
 for (let i = 0; i < 24; i++) {
   const lane = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.02, 2.4), laneMat);
-  lane.position.set(0, 0.03, -i * 8);
+  lane.position.set(0, 0.32, -i * 8);
   scene.add(lane);
   lanes.push(lane);
+}
+
+// ---- Street lamps (warm pools of light) ------------------------------------
+
+const lampHeadMat = new THREE.MeshBasicMaterial({ color: 0xffdca0 });
+const poleMat = new THREE.MeshStandardMaterial({ color: 0x1a1e26, roughness: 0.7, metalness: 0.5 });
+const lamps: { group: THREE.Group; light: THREE.PointLight }[] = [];
+for (let i = 0; i < 6; i++) {
+  const side = i % 2 === 0 ? -1 : 1;
+  const g = new THREE.Group();
+  const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 6, 8), poleMat);
+  pole.position.y = 3;
+  g.add(pole);
+  const arm = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.1, 0.1), poleMat);
+  arm.position.set(-side * 0.7, 5.8, 0);
+  g.add(arm);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.18, 0.3), lampHeadMat);
+  head.position.set(-side * 1.3, 5.7, 0);
+  g.add(head);
+  const light = new THREE.PointLight(0xffd28a, 22, 16, 2);
+  light.position.set(-side * 1.3, 5.6, 0);
+  g.add(light);
+  g.position.set(side * 5.4, 0, -i * 16);
+  scene.add(g);
+  lamps.push({ group: g, light });
 }
 
 // ---- Procedural building windows texture -----------------------------------
@@ -101,9 +131,9 @@ function makeWindowTexture(): THREE.CanvasTexture {
   return tex;
 }
 
-// ---- Buildings (two rows lining the street, recycled for an endless road) ---
+// ---- Buildings (recycled corridor) -----------------------------------------
 
-const CORRIDOR = 18 * 9; // total length before recycling
+const CORRIDOR = 18 * 9;
 const buildings: THREE.Mesh[] = [];
 const buildingGeo = new THREE.BoxGeometry(1, 1, 1);
 
@@ -130,13 +160,11 @@ for (let i = 0; i < 18; i++) {
     styleBuilding(b);
     b.position.x = side * (9 + Math.random() * 3);
     b.position.z = -i * 9 - Math.random() * 3;
-    b.castShadow = true;
     scene.add(b);
     buildings.push(b);
   }
 }
 
-// Neon billboard planes on some building faces.
 const billboards: THREE.Mesh[] = [];
 for (let i = 0; i < 10; i++) {
   const color = NEON_COLORS[i % NEON_COLORS.length];
@@ -151,77 +179,176 @@ for (let i = 0; i < 10; i++) {
   billboards.push(bb);
 }
 
-// ---- Taxi (procedural, from primitives) ------------------------------------
+// ---- Car builder (used for the player taxi and for traffic) -----------------
 
-const taxi = new THREE.Group();
-const yellow = new THREE.MeshStandardMaterial({ color: 0xffd400, roughness: 0.4, metalness: 0.3 });
-const dark = new THREE.MeshStandardMaterial({ color: 0x12161f, roughness: 0.3, metalness: 0.6 });
+interface Car {
+  group: THREE.Group;
+  headlights: THREE.SpotLight[];
+}
 
-const body = new THREE.Mesh(new THREE.BoxGeometry(2, 0.7, 4.2), yellow);
-body.position.y = 0.7;
-body.castShadow = true;
-taxi.add(body);
+function buildCar(bodyColor: number, isTaxi: boolean): Car {
+  const group = new THREE.Group();
+  const paint = new THREE.MeshStandardMaterial({
+    color: bodyColor,
+    roughness: 0.35,
+    metalness: 0.45,
+  });
+  const glassMat = new THREE.MeshStandardMaterial({
+    color: 0x0a0f18,
+    roughness: 0.1,
+    metalness: 0.9,
+  });
 
-const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.6, 2), yellow);
-cabin.position.set(0, 1.25, -0.1);
-taxi.add(cabin);
+  // Lower body + hood/trunk for a car-like silhouette.
+  const lower = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.45, 4.3), paint);
+  lower.position.y = 0.6;
+  group.add(lower);
 
-const glass = new THREE.Mesh(new THREE.BoxGeometry(1.82, 0.55, 1.9), dark);
-glass.position.set(0, 1.27, -0.1);
-glass.scale.z = 0.98;
-taxi.add(glass);
+  // Greenhouse (cabin), set back and narrower.
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 2.0), paint);
+  cabin.position.set(0, 1.05, -0.05);
+  group.add(cabin);
 
-const sign = new THREE.Mesh(
-  new THREE.BoxGeometry(0.8, 0.25, 0.4),
-  new THREE.MeshBasicMaterial({ color: 0xfff3b0 }),
-);
-sign.position.set(0, 1.7, 0);
-taxi.add(sign);
+  // Windows wrapping the cabin.
+  const windows = new THREE.Mesh(new THREE.BoxGeometry(1.74, 0.42, 1.7), glassMat);
+  windows.position.set(0, 1.08, -0.05);
+  group.add(windows);
 
-for (const wx of [-0.9, 0.9]) {
-  for (const wz of [-1.4, 1.4]) {
-    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.45, 0.3, 16), dark);
-    wheel.rotation.z = Math.PI / 2;
-    wheel.position.set(wx, 0.45, wz);
-    taxi.add(wheel);
+  // Sloped windshield.
+  const wind = new THREE.Mesh(new THREE.BoxGeometry(1.66, 0.5, 0.12), glassMat);
+  wind.position.set(0, 1.0, -1.05);
+  wind.rotation.x = -0.5;
+  group.add(wind);
+
+  // Wheels with rims.
+  const tireMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.9 });
+  const rimMat = new THREE.MeshStandardMaterial({ color: 0x9aa3b3, roughness: 0.3, metalness: 0.8 });
+  for (const wx of [-0.92, 0.92]) {
+    for (const wz of [-1.4, 1.4]) {
+      const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.32, 18), tireMat);
+      tire.rotation.z = Math.PI / 2;
+      tire.position.set(wx, 0.42, wz);
+      group.add(tire);
+      const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.34, 12), rimMat);
+      rim.rotation.z = Math.PI / 2;
+      rim.position.set(wx, 0.42, wz);
+      group.add(rim);
+    }
   }
+
+  // Front bumper.
+  const bumper = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.25, 0.3), tireMat);
+  bumper.position.set(0, 0.45, -2.1);
+  group.add(bumper);
+
+  // Headlights (emissive) + real spotlights.
+  const head: THREE.SpotLight[] = [];
+  for (const hx of [-0.66, 0.66]) {
+    const lamp = new THREE.Mesh(
+      new THREE.BoxGeometry(0.32, 0.16, 0.1),
+      new THREE.MeshBasicMaterial({ color: 0xfff6d5 }),
+    );
+    lamp.position.set(hx, 0.62, -2.18);
+    group.add(lamp);
+    const spot = new THREE.SpotLight(0xfff2cc, isTaxi ? 65 : 30, 42, Math.PI / 7, 0.5, 1.6);
+    spot.position.set(hx, 0.7, -2.1);
+    spot.target.position.set(hx, 0, -24);
+    group.add(spot);
+    group.add(spot.target);
+    head.push(spot);
+  }
+
+  // Taillights (red, emissive).
+  for (const tx of [-0.7, 0.7]) {
+    const tl = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 0.16, 0.08),
+      new THREE.MeshBasicMaterial({ color: 0xff3322 }),
+    );
+    tl.position.set(tx, 0.62, 2.16);
+    group.add(tl);
+  }
+
+  // Taxi-only: checker stripe + roof sign.
+  if (isTaxi) {
+    for (const sx of [-0.96, 0.96]) {
+      const stripe = new THREE.Mesh(
+        new THREE.BoxGeometry(0.02, 0.18, 4.2),
+        new THREE.MeshStandardMaterial({ color: 0x111111 }),
+      );
+      stripe.position.set(sx, 0.62, 0);
+      group.add(stripe);
+    }
+    const sign = new THREE.Mesh(
+      new THREE.BoxGeometry(0.7, 0.22, 0.34),
+      new THREE.MeshBasicMaterial({ color: 0xfff3b0 }),
+    );
+    sign.position.set(0, 1.45, 0.1);
+    group.add(sign);
+  }
+
+  return { group, headlights: head };
 }
 
-// Headlights: emissive lamps + real spotlights on the road ahead.
-for (const hx of [-0.65, 0.65]) {
-  const lamp = new THREE.Mesh(
-    new THREE.SphereGeometry(0.16, 12, 12),
-    new THREE.MeshBasicMaterial({ color: 0xfff6d5 }),
-  );
-  lamp.position.set(hx, 0.7, -2.1);
-  taxi.add(lamp);
+const taxi = buildCar(0xffd400, true);
+scene.add(taxi.group);
 
-  const spot = new THREE.SpotLight(0xfff2cc, 120, 45, Math.PI / 6, 0.4, 1.5);
-  spot.position.set(hx, 0.8, -2.1);
-  spot.target.position.set(hx, 0, -22);
-  taxi.add(spot);
-  taxi.add(spot.target);
+// ---- Traffic ---------------------------------------------------------------
+
+const TRAFFIC_COLORS = [0xb02a2a, 0x2a4bb0, 0xdedede, 0x222428, 0x2f8f5a];
+interface Traffic {
+  car: Car;
+  lane: number; // x position
+  oncoming: boolean;
+  rel: number; // relative speed
+}
+const traffic: Traffic[] = [];
+function placeTraffic(t: Traffic): void {
+  t.oncoming = Math.random() < 0.5;
+  t.lane = (t.oncoming ? -1 : 1) * (1.8 + Math.random() * 0.8);
+  t.rel = t.oncoming ? 18 + Math.random() * 10 : -(6 + Math.random() * 6);
+  t.car.group.position.set(t.lane, 0, -40 - Math.random() * 80);
+  t.car.group.rotation.y = t.oncoming ? Math.PI : 0;
+}
+for (let i = 0; i < 5; i++) {
+  const car = buildCar(TRAFFIC_COLORS[i % TRAFFIC_COLORS.length], false);
+  scene.add(car.group);
+  const t: Traffic = { car, lane: 0, oncoming: false, rel: 0 };
+  placeTraffic(t);
+  traffic.push(t);
 }
 
-taxi.position.set(0, 0, 0);
-scene.add(taxi);
+// ---- Rain ------------------------------------------------------------------
 
-// ---- Snow ------------------------------------------------------------------
-
-const snowCount = 600;
-const snowGeo = new THREE.BufferGeometry();
-const snowPos = new Float32Array(snowCount * 3);
-for (let i = 0; i < snowCount; i++) {
-  snowPos[i * 3] = (Math.random() - 0.5) * 60;
-  snowPos[i * 3 + 1] = Math.random() * 50;
-  snowPos[i * 3 + 2] = -Math.random() * 120;
+const RAIN = 700;
+const rainGeo = new THREE.BufferGeometry();
+const rainPos = new Float32Array(RAIN * 2 * 3);
+const rainX = new Float32Array(RAIN);
+const rainY = new Float32Array(RAIN);
+const rainZ = new Float32Array(RAIN);
+for (let i = 0; i < RAIN; i++) {
+  rainX[i] = (Math.random() - 0.5) * 50;
+  rainY[i] = Math.random() * 40;
+  rainZ[i] = -Math.random() * 110;
 }
-snowGeo.setAttribute('position', new THREE.BufferAttribute(snowPos, 3));
-const snow = new THREE.Points(
-  snowGeo,
-  new THREE.PointsMaterial({ color: 0xffffff, size: 0.18, transparent: true, opacity: 0.8 }),
+function writeRain(): void {
+  for (let i = 0; i < RAIN; i++) {
+    const o = i * 6;
+    rainPos[o] = rainX[i];
+    rainPos[o + 1] = rainY[i];
+    rainPos[o + 2] = rainZ[i];
+    rainPos[o + 3] = rainX[i];
+    rainPos[o + 4] = rainY[i] - 0.9;
+    rainPos[o + 5] = rainZ[i];
+  }
+  rainGeo.attributes.position.needsUpdate = true;
+}
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+writeRain();
+const rain = new THREE.LineSegments(
+  rainGeo,
+  new THREE.LineBasicMaterial({ color: 0x9fc4ff, transparent: true, opacity: 0.35 }),
 );
-scene.add(snow);
+scene.add(rain);
 
 // ---- Post-processing (bloom) -----------------------------------------------
 
@@ -229,19 +356,19 @@ const composer = new EffectComposer(renderer);
 composer.addPass(new RenderPass(scene, camera));
 const bloom = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.6, // strength
-  0.5, // radius
-  0.6, // threshold — only bright neon / lights bloom, not whole buildings
+  0.6,
+  0.5,
+  0.6,
 );
 composer.addPass(bloom);
 
-// ---- Controls: drag to steer, auto drive -----------------------------------
+// ---- Controls --------------------------------------------------------------
 
 let targetX = 0;
 let pointerDown = false;
 function setTargetFromX(clientX: number): void {
-  const nx = (clientX / window.innerWidth) * 2 - 1; // -1..1
-  targetX = THREE.MathUtils.clamp(nx * 5.5, -5.5, 5.5);
+  const nx = (clientX / window.innerWidth) * 2 - 1;
+  targetX = THREE.MathUtils.clamp(nx * 4.2, -4.2, 4.2);
 }
 window.addEventListener('pointerdown', (e) => {
   pointerDown = true;
@@ -251,8 +378,6 @@ window.addEventListener('pointermove', (e) => {
   if (pointerDown) setTargetFromX(e.clientX);
 });
 window.addEventListener('pointerup', () => (pointerDown = false));
-
-// ---- Resize ----------------------------------------------------------------
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -270,7 +395,6 @@ function animate(): void {
   const dt = Math.min(clock.getDelta(), 0.05);
   const dz = SPEED * dt;
 
-  // Stream the world toward the camera and recycle past objects.
   for (const b of buildings) {
     b.position.z += dz;
     if (b.position.z > 14) {
@@ -282,6 +406,10 @@ function animate(): void {
   for (const lane of lanes) {
     lane.position.z += dz;
     if (lane.position.z > 12) lane.position.z -= 24 * 8;
+  }
+  for (const { group } of lamps) {
+    group.position.z += dz;
+    if (group.position.z > 14) group.position.z -= 6 * 16;
   }
   for (let i = 0; i < neonLights.length; i++) {
     const l = neonLights[i];
@@ -295,27 +423,30 @@ function animate(): void {
     bb.position.z += dz;
     if (bb.position.z > 14) bb.position.z -= 10 * 16;
   }
-
-  // Snow fall + recycle.
-  const p = snow.geometry.attributes.position as THREE.BufferAttribute;
-  for (let i = 0; i < snowCount; i++) {
-    let y = p.getY(i) - 8 * dt;
-    let z = p.getZ(i) + dz;
-    if (y < 0) y = 50;
-    if (z > 14) z -= 120;
-    p.setY(i, y);
-    p.setZ(i, z);
+  for (const t of traffic) {
+    t.car.group.position.z += dz + t.rel * dt;
+    if (t.car.group.position.z > 16 || t.car.group.position.z < -150) placeTraffic(t);
   }
-  p.needsUpdate = true;
 
-  // Taxi steering with a little roll for feel.
-  taxi.position.x += (targetX - taxi.position.x) * Math.min(1, dt * 6);
-  taxi.rotation.z = (targetX - taxi.position.x) * -0.04;
-  taxi.rotation.y = (targetX - taxi.position.x) * -0.03;
+  // Rain fall + recycle.
+  for (let i = 0; i < RAIN; i++) {
+    rainY[i] -= 55 * dt;
+    rainZ[i] += dz;
+    if (rainY[i] < 0) {
+      rainY[i] = 40;
+      rainX[i] = (Math.random() - 0.5) * 50;
+    }
+    if (rainZ[i] > 14) rainZ[i] -= 110;
+  }
+  writeRain();
 
-  // Chase camera.
-  camera.position.x += (taxi.position.x * 0.6 - camera.position.x) * Math.min(1, dt * 4);
-  camera.lookAt(taxi.position.x * 0.4, 1.6, -14);
+  // Taxi steering with a little body roll.
+  taxi.group.position.x += (targetX - taxi.group.position.x) * Math.min(1, dt * 6);
+  taxi.group.rotation.z = (targetX - taxi.group.position.x) * -0.05;
+  taxi.group.rotation.y = (targetX - taxi.group.position.x) * -0.03;
+
+  camera.position.x += (taxi.group.position.x * 0.6 - camera.position.x) * Math.min(1, dt * 4);
+  camera.lookAt(taxi.group.position.x * 0.4, 1.6, -14);
 
   composer.render();
   requestAnimationFrame(animate);
