@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="uk">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>Zheka 3D — Night City</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #05070f;
+        touch-action: none;
+      }
+      #app {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+      #hint {
+        position: fixed;
+        bottom: 24px;
+        left: 0;
+        right: 0;
+        text-align: center;
+        color: #cfe3ff;
+        font-family: system-ui, sans-serif;
+        font-size: 14px;
+        opacity: 0.85;
+        pointer-events: none;
+        animation: fade 1s ease 3s forwards;
+      }
+      @keyframes fade {
+        to {
+          opacity: 0;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="app"></canvas>
+    <div id="hint">Веди пальцем — кермуй таксі нічним містом</div>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script type="module" src="/src/three3d/main3d.ts"></script>
+  </body>
+</html>
