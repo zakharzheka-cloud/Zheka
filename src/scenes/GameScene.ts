@@ -33,6 +33,10 @@ export class GameScene extends Phaser.Scene {
     this.enemyDir = 1;
     this.lastFired = 0;
 
+    // NYC backdrop: night sky + skyline silhouette anchored to the street.
+    this.add.image(GAME.width / 2, GAME.height / 2, 'sky').setDepth(-20);
+    this.add.image(GAME.width / 2, GAME.height, 'skyline').setOrigin(0.5, 1).setDepth(-10);
+
     this.createStarfield();
 
     this.player = this.physics.add.image(GAME.width / 2, GAME.height - 60, 'player');
@@ -247,7 +251,7 @@ export class GameScene extends Phaser.Scene {
       lifespan: 400,
       quantity: 12,
       scale: { start: 1.5, end: 0 },
-      tint: [0xffd166, 0xff6b6b, 0x6fd3ff],
+      tint: [0xffffff, 0x9aa3b3, 0x6b7382], // feathers + steam
     });
     this.time.delayedCall(450, () => particles.destroy());
   }
@@ -258,26 +262,36 @@ export class GameScene extends Phaser.Scene {
 
   // --- Background ---
 
+  // Falling snow over the city (replaces the old starfield).
   private createStarfield(): void {
     this.stars = this.add.group();
-    for (let i = 0; i < 60; i++) {
-      const star = this.add.image(
+    for (let i = 0; i < 70; i++) {
+      const flake = this.add.image(
         Phaser.Math.Between(0, GAME.width),
         Phaser.Math.Between(0, GAME.height),
-        'star',
+        'snow',
       );
-      star.setAlpha(Phaser.Math.FloatBetween(0.3, 1));
-      star.setData('speed', Phaser.Math.Between(20, 80));
-      this.stars.add(star);
+      flake.setDepth(-5);
+      const scale = Phaser.Math.FloatBetween(0.4, 1.1);
+      flake.setScale(scale);
+      flake.setAlpha(Phaser.Math.FloatBetween(0.4, 0.9));
+      flake.setData('speed', 30 + scale * 60);
+      flake.setData('sway', Phaser.Math.FloatBetween(0.5, 1.5));
+      flake.setData('phase', Phaser.Math.FloatBetween(0, Math.PI * 2));
+      this.stars.add(flake);
     }
   }
 
   private updateStarfield(delta: number): void {
-    (this.stars.getChildren() as Phaser.GameObjects.Image[]).forEach((star) => {
-      star.y += (star.getData('speed') as number) * (delta / 1000);
-      if (star.y > GAME.height) {
-        star.y = 0;
-        star.x = Phaser.Math.Between(0, GAME.width);
+    const t = this.time.now / 1000;
+    (this.stars.getChildren() as Phaser.GameObjects.Image[]).forEach((flake) => {
+      flake.y += (flake.getData('speed') as number) * (delta / 1000);
+      const sway = flake.getData('sway') as number;
+      const phase = flake.getData('phase') as number;
+      flake.x += Math.cos(t * sway + phase) * 0.4;
+      if (flake.y > GAME.height) {
+        flake.y = -4;
+        flake.x = Phaser.Math.Between(0, GAME.width);
       }
     });
   }

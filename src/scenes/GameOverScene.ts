@@ -19,6 +19,9 @@ export class GameOverScene extends Phaser.Scene {
   create(): void {
     const cx = GAME.width / 2;
 
+    this.add.image(cx, GAME.height / 2, 'sky').setDepth(-20);
+    this.add.image(cx, GAME.height, 'skyline').setOrigin(0.5, 1).setDepth(-10).setAlpha(0.85);
+
     this.add
       .text(cx, GAME.height / 2 - 80, 'GAME OVER', {
         fontFamily: 'monospace',
