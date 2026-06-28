@@ -16,5 +16,14 @@ export default defineConfig({
     target: 'es2020',
     outDir: single ? 'docs' : 'dist',
     emptyOutDir: true,
+    // Default (Pages) build ships both the 2D game and the 3D demo page.
+    rollupOptions: single
+      ? undefined
+      : {
+          input: {
+            main: 'index.html',
+            three: 'three.html',
+          },
+        },
   },
 });
