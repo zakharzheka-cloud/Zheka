@@ -3,8 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <title>Zheka 3D — Night City</title>
+    <title>Zheka 3D — Night Drive</title>
     <style>
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
       html,
       body {
         margin: 0;
@@ -13,35 +17,154 @@
         overflow: hidden;
         background: #05070f;
         touch-action: none;
+        font-family: system-ui, -apple-system, sans-serif;
+        color: #eaf2ff;
+        user-select: none;
       }
       #app {
         display: block;
         width: 100vw;
         height: 100vh;
       }
-      #hint {
+      .overlay {
         position: fixed;
-        bottom: 24px;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 18px;
+        padding: 24px;
+        text-align: center;
+      }
+      .hidden {
+        display: none !important;
+      }
+      h1 {
+        margin: 0;
+        font-size: 34px;
+        letter-spacing: 1px;
+        text-shadow: 0 0 18px rgba(0, 229, 255, 0.6);
+      }
+      .sub {
+        opacity: 0.7;
+        font-size: 14px;
+        margin-top: -8px;
+      }
+      .label {
+        font-size: 13px;
+        opacity: 0.65;
+        margin-bottom: 6px;
+        letter-spacing: 1px;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        max-width: 360px;
+      }
+      .chip {
+        padding: 9px 14px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1.5px solid rgba(255, 255, 255, 0.15);
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.15s;
+      }
+      .chip.active {
+        background: rgba(0, 229, 255, 0.18);
+        border-color: #00e5ff;
+        box-shadow: 0 0 14px rgba(0, 229, 255, 0.4);
+      }
+      .btn {
+        margin-top: 10px;
+        padding: 14px 40px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #ff2d95, #a05cff);
+        border: none;
+        color: #fff;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        box-shadow: 0 6px 24px rgba(160, 92, 255, 0.5);
+      }
+      .btn.alt {
+        background: rgba(255, 255, 255, 0.1);
+        box-shadow: none;
+        border: 1.5px solid rgba(255, 255, 255, 0.2);
+      }
+      #hud {
+        position: fixed;
+        top: 0;
         left: 0;
         right: 0;
-        text-align: center;
-        color: #cfe3ff;
-        font-family: system-ui, sans-serif;
-        font-size: 14px;
-        opacity: 0.85;
+        display: flex;
+        justify-content: space-between;
+        padding: 14px 18px;
+        font-size: 16px;
+        font-weight: 600;
         pointer-events: none;
-        animation: fade 1s ease 3s forwards;
+        text-shadow: 0 1px 6px #000;
       }
-      @keyframes fade {
-        to {
-          opacity: 0;
-        }
+      #hud .lives {
+        color: #ff6b6b;
+      }
+      .big {
+        font-size: 40px;
+        font-weight: 800;
+      }
+      .toast {
+        position: fixed;
+        top: 50%;
+        left: 0;
+        right: 0;
+        transform: translateY(-50%);
+        text-align: center;
+        font-size: 30px;
+        font-weight: 800;
+        text-shadow: 0 0 20px rgba(124, 255, 90, 0.7);
+        pointer-events: none;
       }
     </style>
   </head>
   <body>
     <canvas id="app"></canvas>
-    <div id="hint">Веди пальцем — кермуй таксі нічним містом</div>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+      <div>РІВЕНЬ <span id="hud-level">1</span></div>
+      <div><span id="hud-score">0</span> м</div>
+      <div class="lives" id="hud-lives">❤❤❤</div>
+    </div>
+
+    <!-- Main menu -->
+    <div id="menu" class="overlay">
+      <h1>NIGHT DRIVE</h1>
+      <div class="sub">Оминай трафік • проходь рівні</div>
+      <div>
+        <div class="label">ОБЕРИ АВТО</div>
+        <div class="row" id="car-row"></div>
+      </div>
+      <div>
+        <div class="label">ОБЕРИ МІСТО</div>
+        <div class="row" id="city-row"></div>
+      </div>
+      <button class="btn" id="play-btn">ГРАТИ ▶</button>
+    </div>
+
+    <!-- Crash / game over -->
+    <div id="crash" class="overlay hidden">
+      <div class="big" id="crash-title">💥 АВАРІЯ</div>
+      <div id="crash-score" style="font-size: 20px"></div>
+      <button class="btn" id="retry-btn">ЩЕ РАЗ ▶</button>
+      <button class="btn alt" id="menu-btn">МЕНЮ</button>
+    </div>
+
+    <!-- Level toast -->
+    <div id="toast" class="toast hidden"></div>
+
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script type="module" src="/src/three3d/main3d.ts"></script>
   </body>
