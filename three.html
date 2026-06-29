@@ -127,6 +127,57 @@
         text-shadow: 0 0 20px rgba(124, 255, 90, 0.7);
         pointer-events: none;
       }
+      .coins {
+        color: #ffd54a;
+      }
+      .overlay.scroll {
+        justify-content: flex-start;
+        overflow-y: auto;
+      }
+      .uprow {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        width: 100%;
+        max-width: 360px;
+        padding: 10px 14px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+      .uprow .info {
+        text-align: left;
+      }
+      .uprow .nm {
+        font-weight: 700;
+        font-size: 15px;
+      }
+      .uprow .ds {
+        font-size: 12px;
+        opacity: 0.6;
+      }
+      .pips {
+        font-size: 12px;
+        color: #7cff5a;
+        letter-spacing: 2px;
+      }
+      .buy {
+        padding: 8px 12px;
+        border-radius: 10px;
+        border: none;
+        background: linear-gradient(135deg, #ffd54a, #ff9f1a);
+        color: #1a1200;
+        font-weight: 800;
+        font-size: 13px;
+        white-space: nowrap;
+        cursor: pointer;
+      }
+      .buy:disabled {
+        background: rgba(255, 255, 255, 0.12);
+        color: rgba(255, 255, 255, 0.4);
+        cursor: default;
+      }
     </style>
   </head>
   <body>
@@ -135,14 +186,16 @@
     <!-- HUD -->
     <div id="hud" class="hidden">
       <div>РІВЕНЬ <span id="hud-level">1</span></div>
-      <div><span id="hud-score">0</span> м</div>
+      <div>
+        <span id="hud-score">0</span> м · <span class="coins">🪙 <span id="hud-coins">0</span></span>
+      </div>
       <div class="lives" id="hud-lives">❤❤❤</div>
     </div>
 
     <!-- Main menu -->
     <div id="menu" class="overlay">
       <h1>NIGHT DRIVE</h1>
-      <div class="sub">Оминай трафік • проходь рівні</div>
+      <div class="sub coins">🪙 <span id="menu-tokens">0</span> токенів</div>
       <div>
         <div class="label">ОБЕРИ АВТО</div>
         <div class="row" id="car-row"></div>
@@ -152,6 +205,17 @@
         <div class="row" id="city-row"></div>
       </div>
       <button class="btn" id="play-btn">ГРАТИ ▶</button>
+      <button class="btn alt" id="shop-btn">🛒 МАГАЗИН</button>
+    </div>
+
+    <!-- Shop -->
+    <div id="shop" class="overlay scroll hidden">
+      <h1>МАГАЗИН</h1>
+      <div class="sub coins">🪙 <span id="shop-tokens">0</span> токенів</div>
+      <div class="label">АВТО (у кожного свої покращення)</div>
+      <div class="row" id="shop-cars"></div>
+      <div class="row" id="shop-ups" style="flex-direction: column; gap: 10px"></div>
+      <button class="btn alt" id="shop-back">НАЗАД</button>
     </div>
 
     <!-- Crash / game over -->
