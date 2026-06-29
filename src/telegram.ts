@@ -76,3 +76,34 @@ export function loadHiScore(cb: (score: number) => void): void {
     cb(v);
   }
 }
+
+// --- Generic persistence (used for tokens + upgrades) ----------------------
+
+/** Read a value synchronously from localStorage (instant; may be empty). */
+export function readLocal(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/** Write a value to both localStorage (instant) and Telegram CloudStorage. */
+export function persist(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* ignore */
+  }
+  tg()?.CloudStorage?.setItem(key, value);
+}
+
+/** Async load from CloudStorage (cloud is source of truth across devices). */
+export function loadCloud(key: string, cb: (value: string | null) => void): void {
+  const app = tg();
+  if (app?.CloudStorage) {
+    app.CloudStorage.getItem(key, (_err, value) => cb(value ?? null));
+  } else {
+    cb(null);
+  }
+}

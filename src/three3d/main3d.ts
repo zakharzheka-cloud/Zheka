@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
-import { initTelegram, hapticHurt } from '../telegram';
+import { initTelegram, hapticHurt, hapticHit, persist, loadCloud, readLocal } from '../telegram';
 
 // ===========================================================================
 // Config: car styles and city themes
@@ -45,6 +45,49 @@ const CITIES: CityTheme[] = [
 
 const LANES = [-2.4, -0.8, 0.8, 2.4];
 const ROAD_HALF = 4.4;
+
+// --- Upgrades (each car has its own levels) --------------------------------
+
+interface UpgradeDef {
+  id: 'handling' | 'armor' | 'magnet' | 'shield';
+  name: string;
+  desc: string;
+  max: number;
+  price: (level: number) => number;
+}
+const UPGRADES: UpgradeDef[] = [
+  { id: 'handling', name: 'Керування', desc: 'Швидше кермування', max: 3, price: (l) => 40 * (l + 1) },
+  { id: 'armor', name: 'Броня', desc: '+1 життя на старті', max: 3, price: (l) => 70 * (l + 1) },
+  { id: 'magnet', name: 'Магніт', desc: 'Притягує монети', max: 3, price: (l) => 60 * (l + 1) },
+  { id: 'shield', name: 'Щит', desc: 'Поглинає удари на старті', max: 3, price: (l) => 90 * (l + 1) },
+];
+type CarUpgrades = Record<string, number>;
+interface Store {
+  tokens: number;
+  up: Record<string, CarUpgrades>;
+}
+const STORE_KEY = 'nd_store_v1';
+const store: Store = { tokens: 0, up: {} };
+function loadStoreSync(): void {
+  const raw = readLocal(STORE_KEY);
+  if (raw) {
+    try {
+      const s = JSON.parse(raw) as Store;
+      store.tokens = s.tokens || 0;
+      store.up = s.up || {};
+    } catch {
+      /* ignore */
+    }
+  }
+}
+function saveStore(): void {
+  persist(STORE_KEY, JSON.stringify(store));
+}
+function carUp(carId: string): CarUpgrades {
+  if (!store.up[carId]) store.up[carId] = { handling: 0, armor: 0, magnet: 0, shield: 0 };
+  return store.up[carId];
+}
+loadStoreSync();
 
 // ===========================================================================
 // Renderer / scene / camera
@@ -491,6 +534,36 @@ function spawnTraffic(): void {
 }
 
 // ===========================================================================
+// Coins (currency on the road)
+// ===========================================================================
+
+interface Coin { mesh: THREE.Mesh; active: boolean; s: number; lat: number; }
+const coins: Coin[] = [];
+const coinGeo = new THREE.CylinderGeometry(0.45, 0.45, 0.1, 16);
+for (let i = 0; i < 14; i++) {
+  const m = new THREE.Mesh(coinGeo, new THREE.MeshStandardMaterial({ color: 0xffd54a, emissive: 0xffb000, emissiveIntensity: 0.8, metalness: 0.6, roughness: 0.3 }));
+  m.rotation.x = Math.PI / 2;
+  m.visible = false;
+  scene.add(m);
+  coins.push({ mesh: m, active: false, s: 0, lat: 0 });
+}
+function spawnCoins(): void {
+  // A short row of coins in one lane for a satisfying pickup streak.
+  const lane = LANES[Math.floor(Math.random() * LANES.length)];
+  const startS = playerS + 70;
+  let placed = 0;
+  for (const c of coins) {
+    if (c.active) continue;
+    c.active = true;
+    c.lat = lane;
+    c.s = startS + placed * 4;
+    c.mesh.visible = true;
+    placed++;
+    if (placed >= 4) break;
+  }
+}
+
+// ===========================================================================
 // Landmarks (down the avenue, follow the curve)
 // ===========================================================================
 
@@ -511,71 +584,113 @@ function buildLandmark(g: THREE.Group, city: CityTheme): void {
   const std = (color: number, opts: THREE.MeshStandardMaterialParameters = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...opts });
   const glow = (color: number) => new THREE.MeshBasicMaterial({ color });
   if (city.id === 'nyc') {
+    // Statue of Liberty: stepped star base, robe, crown, raised torch, tablet.
     const green = 0x8fd0bd;
-    const gmat = () => std(green, { emissive: 0x2f6f5e, emissiveIntensity: 0.5 });
-    const ped = new THREE.Mesh(new THREE.BoxGeometry(7, 12, 7), std(0x8a93a3, { emissive: 0x2a3038, emissiveIntensity: 0.4 }));
-    ped.position.y = 6;
-    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.4, 13, 10), gmat());
-    body.position.y = 18;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 10), gmat());
-    head.position.y = 25.5;
+    const gmat = () => std(green, { emissive: 0x2f6f5e, emissiveIntensity: 0.55 });
+    const stoneMat = std(0x8a93a3, { emissive: 0x2a3038, emissiveIntensity: 0.4 });
+    const base = new THREE.Mesh(new THREE.BoxGeometry(9, 5, 9), stoneMat);
+    base.position.y = 2.5;
+    const ped = new THREE.Mesh(new THREE.BoxGeometry(6, 9, 6), stoneMat);
+    ped.position.y = 9.5;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.0, 3.4, 13, 12), gmat());
+    body.position.y = 20.5;
+    const robe = new THREE.Mesh(new THREE.ConeGeometry(3.5, 5, 12), gmat());
+    robe.position.y = 16.5;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.5, 14, 12), gmat());
+    head.position.y = 28;
     for (let i = 0; i < 7; i++) {
-      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.4, 6), gmat());
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.6, 6), gmat());
       const a = (i / 6) * Math.PI - Math.PI / 2;
-      spike.position.set(Math.cos(a) * 1.7, 27, Math.sin(a) * 1.7);
+      spike.position.set(Math.cos(a) * 1.6, 29.6, Math.sin(a) * 1.6);
+      spike.rotation.z = -Math.cos(a) * 0.5;
       g.add(spike);
     }
-    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 6, 8), gmat());
-    arm.position.set(2, 24, 0);
-    arm.rotation.z = -0.5;
-    const torch = new THREE.Mesh(new THREE.SphereGeometry(0.9, 10, 8), glow(0xffd166));
-    torch.position.set(3.4, 27, 0);
-    g.add(ped, body, head, arm, torch);
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.45, 7, 8), gmat());
+    arm.position.set(2.4, 27, 0);
+    arm.rotation.z = -0.6;
+    const torchCup = new THREE.Mesh(new THREE.CylinderGeometry(0.7, 0.4, 0.9, 8), std(0xb8902a, { emissive: 0x5a4010, emissiveIntensity: 0.5 }));
+    torchCup.position.set(4.1, 30.4, 0);
+    const flame = new THREE.Mesh(new THREE.ConeGeometry(0.7, 1.8, 10), glow(0xffe08a));
+    flame.position.set(4.1, 31.7, 0);
+    const tablet = new THREE.Mesh(new THREE.BoxGeometry(0.4, 2.2, 1.6), gmat());
+    tablet.position.set(-1.9, 18, 0.6);
+    tablet.rotation.z = 0.4;
+    g.add(base, ped, body, robe, head, arm, torchCup, flame, tablet);
   } else if (city.id === 'tokyo') {
-    const tower = new THREE.Mesh(new THREE.ConeGeometry(7, 34, 4, 4, true), new THREE.MeshBasicMaterial({ color: 0xe23b3b, wireframe: true }));
-    tower.position.y = 17;
-    tower.rotation.y = Math.PI / 4;
-    const core = new THREE.Mesh(new THREE.ConeGeometry(2.5, 30, 4), std(0x3a1414));
+    // Tokyo Tower: red/white lattice with two observation decks + blinking tip.
+    const redLat = (r: number, h: number, y: number) => {
+      const m = new THREE.Mesh(new THREE.ConeGeometry(r, h, 4, 3, true), new THREE.MeshBasicMaterial({ color: 0xff4438, wireframe: true }));
+      m.position.y = y;
+      m.rotation.y = Math.PI / 4;
+      return m;
+    };
+    const lower = redLat(8, 20, 10);
+    const upper = redLat(3.2, 18, 25);
+    const core = new THREE.Mesh(new THREE.ConeGeometry(2.6, 32, 4), std(0x2a0e0e));
     core.position.y = 16;
     core.rotation.y = Math.PI / 4;
-    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 8, 6), std(0xe23b3b));
-    antenna.position.y = 36;
-    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 8), glow(0xff5e5e));
-    tip.position.y = 40;
-    g.add(tower, core, antenna, tip);
+    const deck1 = new THREE.Mesh(new THREE.BoxGeometry(6, 1.4, 6), std(0xff8a3a, { emissive: 0x6a2e00, emissiveIntensity: 0.6 }));
+    deck1.position.y = 19;
+    const deck2 = new THREE.Mesh(new THREE.BoxGeometry(3.4, 1.1, 3.4), std(0xff8a3a, { emissive: 0x6a2e00, emissiveIntensity: 0.6 }));
+    deck2.position.y = 31;
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.18, 10, 6), std(0xdedede));
+    antenna.position.y = 39;
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 8), glow(0xff3030));
+    tip.position.y = 44;
+    g.add(lower, upper, core, deck1, deck2, antenna, tip);
   } else if (city.id === 'vegas') {
-    const pyr = new THREE.Mesh(new THREE.ConeGeometry(9, 13, 4), std(0x1a1712, { metalness: 0.4 }));
+    // Luxor pyramid with gold edges, marquee sign and sky beam.
+    const pyr = new THREE.Mesh(new THREE.ConeGeometry(9, 13, 4), std(0x14110c, { metalness: 0.5, roughness: 0.4 }));
     pyr.position.y = 6.5;
     pyr.rotation.y = Math.PI / 4;
-    const trim = new THREE.Mesh(new THREE.ConeGeometry(9.05, 13.05, 4), new THREE.MeshBasicMaterial({ color: 0xffd400, wireframe: true }));
+    const trim = new THREE.Mesh(new THREE.ConeGeometry(9.1, 13.1, 4), new THREE.MeshBasicMaterial({ color: 0xffd400, wireframe: true }));
     trim.position.y = 6.5;
     trim.rotation.y = Math.PI / 4;
-    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.5, 70, 8), new THREE.MeshBasicMaterial({ color: 0xfff8e0, transparent: true, opacity: 0.4 }));
-    beam.position.y = 48;
-    g.add(pyr, trim, beam);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.7, 80, 10, 1, true), new THREE.MeshBasicMaterial({ color: 0xfff6d0, transparent: true, opacity: 0.35, side: THREE.DoubleSide }));
+    beam.position.y = 53;
+    const marquee = new THREE.Mesh(new THREE.BoxGeometry(7, 3, 0.5), glow(0xffd400));
+    marquee.position.set(0, 4, 6.4);
+    const marqueeFrame = new THREE.Mesh(new THREE.BoxGeometry(7.6, 3.6, 0.4), std(0xff2d95, { emissive: 0xff2d95, emissiveIntensity: 0.8 }));
+    marqueeFrame.position.set(0, 4, 6.2);
+    g.add(pyr, trim, beam, marqueeFrame, marquee);
   } else {
-    const tower = new THREE.Mesh(new THREE.BoxGeometry(5, 18, 5), std(0xff9ec7, { emissive: 0x3a1030, emissiveIntensity: 0.4 }));
-    tower.position.y = 9;
-    const band = new THREE.Mesh(new THREE.BoxGeometry(5.1, 1.2, 5.1), glow(0x00e5ff));
-    band.position.y = 14;
-    g.add(tower, band);
-    for (const px of [-3, 3.5]) {
-      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 9, 6), std(0x6b4f2a));
-      trunk.position.set(px, 4.5, 4);
+    // Miami: stepped Art-Deco tower with neon outline + palms.
+    const tones = [0xff9ec7, 0xffc6e0, 0xffe0ef];
+    let y = 0;
+    for (let i = 0; i < 3; i++) {
+      const w = 6 - i * 1.3;
+      const h = 7 - i;
+      const seg = new THREE.Mesh(new THREE.BoxGeometry(w, h, w), std(tones[i], { emissive: 0x3a1030, emissiveIntensity: 0.45 }));
+      seg.position.y = y + h / 2;
+      const band = new THREE.Mesh(new THREE.BoxGeometry(w + 0.15, 0.5, w + 0.15), glow(i % 2 === 0 ? 0x00e5ff : 0xff2d95));
+      band.position.y = y + h - 0.3;
+      g.add(seg, band);
+      y += h;
+    }
+    const spire = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.3, 4, 6), glow(0x00e5ff));
+    spire.position.y = y + 2;
+    g.add(spire);
+    for (const px of [-4, 4, -2.5]) {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 9, 6), std(0x6b4f2a));
+      trunk.position.set(px, 4.5, 5);
       g.add(trunk);
-      for (let i = 0; i < 6; i++) {
-        const frond = new THREE.Mesh(new THREE.ConeGeometry(0.4, 3.2, 4), std(0x2f9e5a));
-        const a = (i / 6) * Math.PI * 2;
-        frond.position.set(px + Math.cos(a) * 1.1, 9, 4 + Math.sin(a) * 1.1);
-        frond.rotation.z = Math.cos(a) * 1.1;
-        frond.rotation.x = Math.sin(a) * 1.1;
+      for (let i = 0; i < 7; i++) {
+        const frond = new THREE.Mesh(new THREE.ConeGeometry(0.4, 3.4, 4), std(0x2f9e5a, { emissive: 0x0f3a20, emissiveIntensity: 0.3 }));
+        const a = (i / 7) * Math.PI * 2;
+        frond.position.set(px + Math.cos(a) * 1.2, 9, 5 + Math.sin(a) * 1.2);
+        frond.rotation.z = Math.cos(a) * 1.2;
+        frond.rotation.x = Math.sin(a) * 1.2;
         g.add(frond);
       }
     }
   }
-  const flood = new THREE.PointLight(0xfff2d8, 50, 80, 2);
-  flood.position.set(0, 18, 12);
+  // Floodlights for grandeur.
+  const flood = new THREE.PointLight(0xfff2d8, 55, 90, 2);
+  flood.position.set(0, 20, 14);
   g.add(flood);
+  const glowRing = new THREE.PointLight(0x88aaff, 20, 40, 2);
+  glowRing.position.set(0, 3, 6);
+  g.add(glowRing);
 }
 
 // ===========================================================================
@@ -639,6 +754,12 @@ let lives = 3;
 let invuln = 0;
 let shake = 0;
 let targetLat = 0;
+// Upgrade-driven gameplay state (set in resetGame from the chosen car).
+let steerSpeed = 8;
+let magnetRange = 0;
+let shieldCharges = 0;
+let runCoins = 0;
+let coinAcc = 0;
 function levelTarget(lvl: number): number { return 600 + lvl * 400; }
 
 function resetGame(): void {
@@ -648,12 +769,20 @@ function resetGame(): void {
   level = 1;
   levelDist = 0;
   totalScore = 0;
-  lives = 3;
-  invuln = 1.0;
+  runCoins = 0;
+  coinAcc = 0;
   shake = 0;
   targetLat = 0;
   playerLat = 0;
+  // Apply this car's upgrades.
+  const u = carUp(playerStyle.id);
+  steerSpeed = 8 + u.handling * 3;
+  magnetRange = u.magnet > 0 ? 1.5 + u.magnet * 1.8 : 0;
+  shieldCharges = u.shield;
+  lives = 3 + u.armor;
+  invuln = 1.0;
   for (const t of traffic) { t.active = false; t.car.group.visible = false; }
+  for (const c of coins) { c.active = false; c.mesh.visible = false; }
   player.group.visible = true;
   updateHud();
 }
@@ -695,7 +824,14 @@ buildChips();
 function updateHud(): void {
   el('hud-level').textContent = String(level);
   el('hud-score').textContent = String(Math.floor(totalScore));
-  el('hud-lives').textContent = '❤'.repeat(Math.max(lives, 0)) || '—';
+  el('hud-coins').textContent = String(runCoins);
+  const hearts = '❤'.repeat(Math.max(lives, 0));
+  const shields = '🛡'.repeat(Math.max(shieldCharges, 0));
+  el('hud-lives').textContent = (shields + hearts) || '—';
+}
+function updateTokenLabels(): void {
+  el('menu-tokens').textContent = String(store.tokens);
+  el('shop-tokens').textContent = String(store.tokens);
 }
 function showToast(text: string): void {
   toastEl.textContent = text;
@@ -709,6 +845,7 @@ function startGame(): void {
   applyCity(currentCity);
   resetGame();
   menuEl.classList.add('hidden');
+  shopEl.classList.add('hidden');
   crashEl.classList.add('hidden');
   hudEl.classList.remove('hidden');
   state = 'playing';
@@ -716,18 +853,91 @@ function startGame(): void {
 function gameOver(): void {
   state = 'gameover';
   hudEl.classList.add('hidden');
-  el('crash-score').textContent = `Дистанція: ${Math.floor(totalScore)} м · Рівень ${level}`;
+  store.tokens += runCoins;
+  saveStore();
+  updateTokenLabels();
+  el('crash-score').textContent = `Дистанція: ${Math.floor(totalScore)} м · 🪙 +${runCoins}`;
   crashEl.classList.remove('hidden');
 }
 function showMenu(): void {
   state = 'menu';
   crashEl.classList.add('hidden');
+  shopEl.classList.add('hidden');
   hudEl.classList.add('hidden');
+  updateTokenLabels();
   menuEl.classList.remove('hidden');
 }
 el('play-btn').onclick = startGame;
 el('retry-btn').onclick = startGame;
 el('menu-btn').onclick = showMenu;
+
+// --- Shop -------------------------------------------------------------------
+
+const shopEl = el('shop');
+let shopCarId = CAR_STYLES[0].id;
+function renderShop(): void {
+  updateTokenLabels();
+  const carsRow = el('shop-cars');
+  carsRow.innerHTML = '';
+  for (const s of CAR_STYLES) {
+    const chip = document.createElement('div');
+    chip.className = 'chip' + (s.id === shopCarId ? ' active' : '');
+    chip.textContent = s.name;
+    chip.onclick = () => { shopCarId = s.id; renderShop(); };
+    carsRow.appendChild(chip);
+  }
+  const ups = el('shop-ups');
+  ups.innerHTML = '';
+  const u = carUp(shopCarId);
+  for (const def of UPGRADES) {
+    const lvl = u[def.id];
+    const maxed = lvl >= def.max;
+    const cost = def.price(lvl);
+    const row = document.createElement('div');
+    row.className = 'uprow';
+    const pips = '●'.repeat(lvl) + '○'.repeat(def.max - lvl);
+    row.innerHTML = `<div class="info"><div class="nm">${def.name}</div><div class="ds">${def.desc}</div><div class="pips">${pips}</div></div>`;
+    const btn = document.createElement('button');
+    btn.className = 'buy';
+    btn.textContent = maxed ? 'МАКС' : `🪙 ${cost}`;
+    btn.disabled = maxed || store.tokens < cost;
+    btn.onclick = () => {
+      if (store.tokens < cost || maxed) return;
+      store.tokens -= cost;
+      u[def.id] = lvl + 1;
+      saveStore();
+      hapticHit();
+      renderShop();
+    };
+    row.appendChild(btn);
+    ups.appendChild(row);
+  }
+}
+function showShop(): void {
+  state = 'menu';
+  shopCarId = selectedCarId;
+  menuEl.classList.add('hidden');
+  renderShop();
+  shopEl.classList.remove('hidden');
+}
+el('shop-btn').onclick = showShop;
+el('shop-back').onclick = showMenu;
+
+// Tokens may be richer in the cloud than in localStorage — merge on load.
+loadCloud(STORE_KEY, (v) => {
+  if (!v) return;
+  try {
+    const s = JSON.parse(v) as Store;
+    if ((s.tokens || 0) >= store.tokens) {
+      store.tokens = s.tokens || 0;
+      store.up = s.up || store.up;
+      updateTokenLabels();
+    }
+  } catch {
+    /* ignore */
+  }
+});
+updateTokenLabels();
 
 function setTargetFromX(clientX: number): void {
   const nx = (clientX / window.innerWidth) * 2 - 1;
@@ -745,14 +955,21 @@ window.addEventListener('resize', () => {
 });
 
 function crash(): void {
-  lives -= 1;
   invuln = 1.2;
   shake = 0.4;
   hapticHurt();
-  updateHud();
+  // Clear nearby traffic so we don't instantly re-collide.
   for (const t of traffic) {
     if (t.active && Math.abs(t.s - playerS) < 16) { t.active = false; t.car.group.visible = false; }
   }
+  if (shieldCharges > 0) {
+    shieldCharges -= 1; // shield absorbs the hit
+    showToast('ЩИТ!');
+    updateHud();
+    return;
+  }
+  lives -= 1;
+  updateHud();
   if (lives <= 0) gameOver();
 }
 
@@ -839,17 +1056,38 @@ function animate(): void {
     updateHud();
     spawnAcc += dt;
     if (spawnAcc >= spawnInterval) { spawnAcc = 0; spawnTraffic(); }
+    coinAcc += dt;
+    if (coinAcc >= 2.2) { coinAcc = 0; spawnCoins(); }
     if (invuln > 0) {
       invuln -= dt;
       player.group.visible = Math.floor(invuln * 12) % 2 === 0;
       if (invuln <= 0) player.group.visible = true;
     }
-    playerLat += (targetLat - playerLat) * Math.min(1, dt * 8);
+    playerLat += (targetLat - playerLat) * Math.min(1, dt * steerSpeed);
   }
 
   // Player placement with steering tilt.
   place(player.group, playerS, playerLat, 0);
   player.group.rotation.z = (targetLat - playerLat) * -0.06;
+
+  // Coins: spin, magnet, collect, recycle.
+  for (const c of coins) {
+    if (!c.active) continue;
+    c.mesh.rotation.z += dt * 3;
+    if (c.s < playerS - 12) { c.active = false; c.mesh.visible = false; continue; }
+    if (state === 'playing' && magnetRange > 0 && c.s - playerS < 18 && Math.abs(c.lat - playerLat) < magnetRange) {
+      c.lat += (playerLat - c.lat) * Math.min(1, dt * 4);
+    }
+    place(c.mesh, c.s, c.lat, 1.0);
+    c.mesh.rotation.x = Math.PI / 2; // keep coin facing up after place() yaw
+    if (state === 'playing' && Math.abs(c.s - playerS) < 2.2 && Math.abs(c.lat - playerLat) < 1.1) {
+      c.active = false;
+      c.mesh.visible = false;
+      runCoins += 1;
+      hapticHit();
+      updateHud();
+    }
+  }
 
   // Traffic.
   for (const t of traffic) {
