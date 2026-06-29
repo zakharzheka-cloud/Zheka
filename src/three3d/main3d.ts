@@ -9,21 +9,22 @@ import { initTelegram, hapticHurt } from '../telegram';
 // Config: car styles and city themes
 // ===========================================================================
 
+type CarKind = 'sedan' | 'sport' | 'van' | 'classic';
 interface CarStyle {
   id: string;
   name: string;
   color: number;
+  kind: CarKind;
   taxi?: boolean;
   police?: boolean;
-  low?: boolean;
 }
 
 const CAR_STYLES: CarStyle[] = [
-  { id: 'taxi', name: 'Таксі', color: 0xffd400, taxi: true },
-  { id: 'sport', name: 'Спорт', color: 0xff3b30, low: true },
-  { id: 'police', name: 'Поліція', color: 0x1e3a8a, police: true },
-  { id: 'classic', name: 'Класика', color: 0x14171d },
-  { id: 'lime', name: 'Лайм', color: 0x7cff5a },
+  { id: 'taxi', name: 'Таксі', color: 0xffd400, kind: 'sedan', taxi: true },
+  { id: 'sport', name: 'Спорт', color: 0xff3b30, kind: 'sport' },
+  { id: 'police', name: 'Поліція', color: 0x1e3a8a, kind: 'sedan', police: true },
+  { id: 'classic', name: 'Класика', color: 0x9a2f2f, kind: 'classic' },
+  { id: 'van', name: 'Фургон', color: 0x2f9e6a, kind: 'van' },
 ];
 
 interface CityTheme {
@@ -250,111 +251,155 @@ interface Car {
   policeLights?: THREE.Mesh[];
 }
 
+interface Dims {
+  bl: number; bw: number; bh: number; by: number;
+  cw: number; ch: number; cl: number; cy: number; cz: number;
+}
+const CAR_DIMS: Record<CarKind, Dims> = {
+  sedan: { bl: 4.3, bw: 1.9, bh: 0.45, by: 0.6, cw: 1.7, ch: 0.55, cl: 2.0, cy: 1.05, cz: -0.05 },
+  sport: { bl: 4.8, bw: 1.96, bh: 0.38, by: 0.5, cw: 1.62, ch: 0.4, cl: 1.5, cy: 0.9, cz: 0.15 },
+  van: { bl: 3.9, bw: 1.96, bh: 0.5, by: 0.62, cw: 1.86, ch: 1.0, cl: 2.7, cy: 1.3, cz: 0.1 },
+  classic: { bl: 4.4, bw: 1.8, bh: 0.55, by: 0.66, cw: 1.64, ch: 0.62, cl: 1.7, cy: 1.22, cz: 0.0 },
+};
+
 function buildCar(style: CarStyle, isPlayer: boolean): Car {
+  const d = CAR_DIMS[style.kind];
   const group = new THREE.Group();
   const paint = new THREE.MeshStandardMaterial({
     color: style.color,
     roughness: 0.35,
     metalness: 0.45,
+    // Cars glow in their own colour so they read on the dark road
+    // (player a touch; traffic glows strongly so it is impossible to miss).
+    emissive: new THREE.Color(style.color),
+    emissiveIntensity: isPlayer ? 0.12 : 0.85,
   });
   const glassMat = new THREE.MeshStandardMaterial({
     color: 0x0a0f18,
     roughness: 0.1,
     metalness: 0.9,
   });
-  const cabinY = style.low ? 0.95 : 1.05;
 
-  const lower = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.45, 4.3), paint);
-  lower.position.y = 0.6;
+  const lower = new THREE.Mesh(new THREE.BoxGeometry(d.bw, d.bh, d.bl), paint);
+  lower.position.y = d.by;
   group.add(lower);
 
-  const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.7, 0.55, 2.0), paint);
-  cabin.position.set(0, cabinY, -0.05);
+  const cabin = new THREE.Mesh(new THREE.BoxGeometry(d.cw, d.ch, d.cl), paint);
+  cabin.position.set(0, d.cy, d.cz);
   group.add(cabin);
 
-  const windows = new THREE.Mesh(new THREE.BoxGeometry(1.74, 0.42, 1.7), glassMat);
-  windows.position.set(0, cabinY + 0.03, -0.05);
+  const windows = new THREE.Mesh(new THREE.BoxGeometry(d.cw + 0.04, d.ch - 0.14, d.cl - 0.3), glassMat);
+  windows.position.set(0, d.cy + 0.02, d.cz);
   group.add(windows);
 
-  const wind = new THREE.Mesh(new THREE.BoxGeometry(1.66, 0.5, 0.12), glassMat);
-  wind.position.set(0, cabinY - 0.05, -1.05);
+  const wind = new THREE.Mesh(new THREE.BoxGeometry(d.cw - 0.04, d.ch, 0.12), glassMat);
+  wind.position.set(0, d.cy - 0.04, d.cz - d.cl / 2);
   wind.rotation.x = -0.5;
   group.add(wind);
 
+  const wx = d.bw / 2 - 0.03;
+  const wz = d.bl / 2 - 0.95;
   const tireMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0c, roughness: 0.9 });
   const rimMat = new THREE.MeshStandardMaterial({ color: 0x9aa3b3, roughness: 0.3, metalness: 0.8 });
-  for (const wx of [-0.92, 0.92]) {
-    for (const wz of [-1.4, 1.4]) {
+  for (const sx of [-wx, wx]) {
+    for (const sz of [-wz, wz]) {
       const tire = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, 0.32, 18), tireMat);
       tire.rotation.z = Math.PI / 2;
-      tire.position.set(wx, 0.42, wz);
+      tire.position.set(sx, 0.42, sz);
       group.add(tire);
       const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.34, 12), rimMat);
       rim.rotation.z = Math.PI / 2;
-      rim.position.set(wx, 0.42, wz);
+      rim.position.set(sx, 0.42, sz);
       group.add(rim);
     }
   }
 
-  const bumper = new THREE.Mesh(new THREE.BoxGeometry(1.95, 0.25, 0.3), tireMat);
-  bumper.position.set(0, 0.45, -2.1);
+  const front = -d.bl / 2;
+  const rear = d.bl / 2;
+  const bumper = new THREE.Mesh(new THREE.BoxGeometry(d.bw + 0.05, 0.25, 0.3), tireMat);
+  bumper.position.set(0, d.by - 0.15, front + 0.05);
   group.add(bumper);
 
-  for (const hx of [-0.66, 0.66]) {
+  const hx = d.bw * 0.34;
+  for (const sx of [-hx, hx]) {
     const lamp = new THREE.Mesh(
-      new THREE.BoxGeometry(0.32, 0.16, 0.1),
+      new THREE.BoxGeometry(0.34, 0.18, 0.1),
       new THREE.MeshBasicMaterial({ color: 0xfff6d5 }),
     );
-    lamp.position.set(hx, 0.62, -2.18);
+    lamp.position.set(sx, d.by + 0.05, front + 0.02);
     group.add(lamp);
     if (isPlayer) {
-      const spot = new THREE.SpotLight(0xfff2cc, 65, 42, Math.PI / 7, 0.5, 1.6);
-      spot.position.set(hx, 0.7, -2.1);
-      spot.target.position.set(hx, 0, -24);
+      const spot = new THREE.SpotLight(0xfff2cc, 120, 60, Math.PI / 6, 0.5, 1.5);
+      spot.position.set(sx, 0.8, front + 0.1);
+      spot.target.position.set(sx, 0, front - 22);
       group.add(spot);
       group.add(spot.target);
     }
   }
 
-  for (const tx of [-0.7, 0.7]) {
+  // Big bright taillights (these bloom) so traffic ahead is obvious.
+  const tx = d.bw * 0.34;
+  for (const sx of [-tx, tx]) {
     const tl = new THREE.Mesh(
-      new THREE.BoxGeometry(0.3, 0.16, 0.08),
-      new THREE.MeshBasicMaterial({ color: 0xff3322 }),
+      new THREE.BoxGeometry(0.52, 0.26, 0.12),
+      new THREE.MeshBasicMaterial({ color: 0xff2a1a }),
     );
-    tl.position.set(tx, 0.62, 2.16);
+    tl.position.set(sx, d.by + 0.08, rear - 0.02);
     group.add(tl);
+  }
+  // Traffic gets a glowing roof strip so it stands out on the dark road.
+  if (!isPlayer) {
+    const roof = new THREE.Mesh(
+      new THREE.BoxGeometry(d.cw * 0.85, 0.12, 0.7),
+      new THREE.MeshBasicMaterial({ color: 0xffe9b0 }),
+    );
+    roof.position.set(0, d.cy + d.ch / 2 + 0.08, d.cz);
+    group.add(roof);
+  }
+
+  // Sport spoiler.
+  if (style.kind === 'sport') {
+    const wing = new THREE.Mesh(new THREE.BoxGeometry(d.bw * 0.9, 0.07, 0.35), paint);
+    wing.position.set(0, d.by + 0.45, rear - 0.5);
+    group.add(wing);
+    for (const sx of [-0.7, 0.7]) {
+      const post = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.4, 0.1), tireMat);
+      post.position.set(sx, d.by + 0.25, rear - 0.5);
+      group.add(post);
+    }
   }
 
   if (style.taxi) {
-    for (const sx of [-0.96, 0.96]) {
+    for (const sx of [-(d.bw / 2 - 0.02), d.bw / 2 - 0.02]) {
       const stripe = new THREE.Mesh(
-        new THREE.BoxGeometry(0.02, 0.18, 4.2),
+        new THREE.BoxGeometry(0.02, 0.18, d.bl - 0.2),
         new THREE.MeshStandardMaterial({ color: 0x111111 }),
       );
-      stripe.position.set(sx, 0.62, 0);
+      stripe.position.set(sx, d.by + 0.02, 0);
       group.add(stripe);
     }
     const sign = new THREE.Mesh(
       new THREE.BoxGeometry(0.7, 0.22, 0.34),
       new THREE.MeshBasicMaterial({ color: 0xfff3b0 }),
     );
-    sign.position.set(0, cabinY + 0.4, 0.1);
+    sign.position.set(0, d.cy + d.ch / 2 + 0.12, d.cz + 0.15);
     group.add(sign);
   }
 
   const car: Car = { group };
   if (style.police) {
+    const ly = d.cy + d.ch / 2 + 0.1;
     const lightsArr: THREE.Mesh[] = [];
     const blue = new THREE.Mesh(
       new THREE.BoxGeometry(0.34, 0.12, 0.3),
       new THREE.MeshBasicMaterial({ color: 0x2244ff }),
     );
-    blue.position.set(-0.28, cabinY + 0.4, 0);
+    blue.position.set(-0.28, ly, 0);
     const red = new THREE.Mesh(
       new THREE.BoxGeometry(0.34, 0.12, 0.3),
       new THREE.MeshBasicMaterial({ color: 0xff2233 }),
     );
-    red.position.set(0.28, cabinY + 0.4, 0);
+    red.position.set(0.28, ly, 0);
     group.add(blue, red);
     lightsArr.push(blue, red);
     car.policeLights = lightsArr;
@@ -378,7 +423,8 @@ function setPlayerCar(style: CarStyle): void {
   scene.add(player.group);
 }
 
-const TRAFFIC_COLORS = [0xb02a2a, 0x2a4bb0, 0xdedede, 0x222428, 0x2f8f5a, 0xc9a227];
+const TRAFFIC_COLORS = [0xd23a3a, 0x3a6bff, 0xedeef2, 0x9aa3b3, 0x3fbf7a, 0xe8b53a];
+const TRAFFIC_KINDS: CarKind[] = ['sedan', 'sedan', 'van', 'sport', 'classic'];
 interface Traffic {
   car: Car;
   active: boolean;
@@ -386,7 +432,12 @@ interface Traffic {
 }
 const traffic: Traffic[] = [];
 for (let i = 0; i < 10; i++) {
-  const style: CarStyle = { id: 't', name: 't', color: TRAFFIC_COLORS[i % TRAFFIC_COLORS.length] };
+  const style: CarStyle = {
+    id: 't',
+    name: 't',
+    color: TRAFFIC_COLORS[i % TRAFFIC_COLORS.length],
+    kind: TRAFFIC_KINDS[i % TRAFFIC_KINDS.length],
+  };
   const car = buildCar(style, false);
   car.group.visible = false;
   car.group.position.set(0, 0, 60);
@@ -416,6 +467,115 @@ function spawnTraffic(): void {
 }
 
 // ===========================================================================
+// City landmarks (recognisable structures per city)
+// ===========================================================================
+
+// Landmarks sit in the centre, far down the avenue, so the player drives
+// toward them; they recycle back into the distance before reaching the car.
+const LM_SPACING = 120;
+const LM_RECYCLE = -34;
+const landmarks: THREE.Group[] = [];
+for (let i = 0; i < 2; i++) {
+  const g = new THREE.Group();
+  g.position.set(0, 0, -60 - i * LM_SPACING);
+  scene.add(g);
+  landmarks.push(g);
+}
+
+function clearGroup(g: THREE.Group): void {
+  while (g.children.length) g.remove(g.children[0]);
+}
+
+function buildLandmark(g: THREE.Group, city: CityTheme): void {
+  clearGroup(g);
+  const std = (color: number, opts: THREE.MeshStandardMaterialParameters = {}) =>
+    new THREE.MeshStandardMaterial({ color, roughness: 0.8, ...opts });
+  const glow = (color: number) => new THREE.MeshBasicMaterial({ color });
+
+  if (city.id === 'nyc') {
+    // Statue of Liberty (softly self-lit green so it reads at night).
+    const green = 0x8fd0bd;
+    const gmat = () => std(green, { emissive: 0x2f6f5e, emissiveIntensity: 0.5 });
+    const ped = new THREE.Mesh(new THREE.BoxGeometry(7, 12, 7), std(0x8a93a3, { emissive: 0x2a3038, emissiveIntensity: 0.4 }));
+    ped.position.y = 6;
+    const body = new THREE.Mesh(new THREE.CylinderGeometry(2.2, 3.4, 13, 10), gmat());
+    body.position.y = 18;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(1.6, 12, 10), gmat());
+    head.position.y = 25.5;
+    for (let i = 0; i < 7; i++) {
+      const spike = new THREE.Mesh(new THREE.ConeGeometry(0.18, 1.4, 6), gmat());
+      const a = (i / 6) * Math.PI - Math.PI / 2;
+      spike.position.set(Math.cos(a) * 1.7, 27, Math.sin(a) * 1.7);
+      g.add(spike);
+    }
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 6, 8), gmat());
+    arm.position.set(2, 24, 0);
+    arm.rotation.z = -0.5;
+    const torch = new THREE.Mesh(new THREE.SphereGeometry(0.9, 10, 8), glow(0xffd166));
+    torch.position.set(3.4, 27, 0);
+    g.add(ped, body, head, arm, torch);
+  } else if (city.id === 'tokyo') {
+    // Tokyo Tower (red lattice + lit tip).
+    const tower = new THREE.Mesh(
+      new THREE.ConeGeometry(7, 34, 4, 4, true),
+      new THREE.MeshBasicMaterial({ color: 0xe23b3b, wireframe: true }),
+    );
+    tower.position.y = 17;
+    tower.rotation.y = Math.PI / 4;
+    const core = new THREE.Mesh(new THREE.ConeGeometry(2.5, 30, 4), std(0x3a1414));
+    core.position.y = 16;
+    core.rotation.y = Math.PI / 4;
+    const antenna = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 8, 6), std(0xe23b3b));
+    antenna.position.y = 36;
+    const tip = new THREE.Mesh(new THREE.SphereGeometry(0.6, 8, 8), glow(0xff5e5e));
+    tip.position.y = 40;
+    g.add(tower, core, antenna, tip);
+  } else if (city.id === 'vegas') {
+    // Luxor-style pyramid + sky beam.
+    const pyr = new THREE.Mesh(new THREE.ConeGeometry(9, 13, 4), std(0x1a1712, { metalness: 0.4 }));
+    pyr.position.y = 6.5;
+    pyr.rotation.y = Math.PI / 4;
+    const trim = new THREE.Mesh(
+      new THREE.ConeGeometry(9.05, 13.05, 4),
+      new THREE.MeshBasicMaterial({ color: 0xffd400, wireframe: true }),
+    );
+    trim.position.y = 6.5;
+    trim.rotation.y = Math.PI / 4;
+    const beam = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 70, 8),
+      new THREE.MeshBasicMaterial({ color: 0xfff8e0, transparent: true, opacity: 0.4 }),
+    );
+    beam.position.y = 48;
+    g.add(pyr, trim, beam);
+  } else {
+    // Miami: palm trees + pastel Art-Deco tower.
+    const tower = new THREE.Mesh(new THREE.BoxGeometry(5, 18, 5), std(0xff9ec7, { emissive: 0x3a1030, emissiveIntensity: 0.4 }));
+    tower.position.y = 9;
+    const band = new THREE.Mesh(new THREE.BoxGeometry(5.1, 1.2, 5.1), glow(0x00e5ff));
+    band.position.y = 14;
+    g.add(tower, band);
+    for (const px of [-3, 3.5]) {
+      const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.5, 9, 6), std(0x6b4f2a));
+      trunk.position.set(px, 4.5, 4);
+      g.add(trunk);
+      for (let i = 0; i < 6; i++) {
+        const frond = new THREE.Mesh(new THREE.ConeGeometry(0.4, 3.2, 4), std(0x2f9e5a));
+        const a = (i / 6) * Math.PI * 2;
+        frond.position.set(px + Math.cos(a) * 1.1, 9, 4 + Math.sin(a) * 1.1);
+        frond.rotation.z = Math.cos(a) * 1.1;
+        frond.rotation.x = Math.sin(a) * 1.1;
+        g.add(frond);
+      }
+    }
+  }
+
+  // Floodlight so the landmark is clearly lit at night.
+  const flood = new THREE.PointLight(0xfff2d8, 50, 80, 2);
+  flood.position.set(0, 18, 12);
+  g.add(flood);
+}
+
+// ===========================================================================
 // Theme application
 // ===========================================================================
 
@@ -430,6 +590,7 @@ function applyCity(city: CityTheme): void {
   for (let i = 0; i < billboards.length; i++) {
     (billboards[i].material as THREE.MeshBasicMaterial).color.setHex(city.neon[i % city.neon.length]);
   }
+  for (const g of landmarks) buildLandmark(g, city);
 }
 let currentCity = CITIES[0];
 applyCity(currentCity);
@@ -644,6 +805,10 @@ function animate(): void {
   for (const g of lamps) {
     g.position.z += dz;
     if (g.position.z > 14) g.position.z -= 6 * 16;
+  }
+  for (const g of landmarks) {
+    g.position.z += dz;
+    if (g.position.z > LM_RECYCLE) g.position.z -= landmarks.length * LM_SPACING;
   }
   for (let i = 0; i < neonLights.length; i++) {
     const l = neonLights[i];
