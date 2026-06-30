@@ -26,6 +26,10 @@ const CAR_STYLES: CarStyle[] = [
   { id: 'van', name: 'Фургон', color: 0x2f9e6a, kind: 'van' },
 ];
 
+// What lines each side of the avenue. 'city'/'casino' = buildings,
+// 'park' = trees + lake, 'palms' = beach palms, 'sea' = open water.
+type Terrain = 'city' | 'park' | 'palms' | 'sea' | 'casino';
+
 interface CityTheme {
   id: string;
   name: string;
@@ -34,14 +38,23 @@ interface CityTheme {
   building: number;
   ambient: number;
   neon: number[];
+  sideL: Terrain;
+  sideR: Terrain;
 }
 
 const CITIES: CityTheme[] = [
-  { id: 'nyc', name: 'Нью-Йорк', bg: 0x05070f, fog: 0x070b1c, building: 0x0c1020, ambient: 0x2a3550, neon: [0xff2d95, 0x00e5ff, 0xffb300, 0x7cff5a, 0xa05cff] },
-  { id: 'miami', name: 'Маямі', bg: 0x1a0b2e, fog: 0x2a1240, building: 0x1a1030, ambient: 0x3a2050, neon: [0xff2d95, 0x00e5ff, 0xff6ec7, 0xa05cff, 0xffd166] },
-  { id: 'tokyo', name: 'Токіо', bg: 0x0a0510, fog: 0x150818, building: 0x140a16, ambient: 0x301525, neon: [0xff2233, 0xffffff, 0xff66aa, 0x33ddff, 0xffd400] },
-  { id: 'vegas', name: 'Вегас', bg: 0x0d0a04, fog: 0x1a1408, building: 0x14110a, ambient: 0x352a10, neon: [0xffd400, 0xffae42, 0xff5e5e, 0x00e5ff, 0xff2d95] },
+  { id: 'nyc', name: 'Нью-Йорк', bg: 0x05070f, fog: 0x070b1c, building: 0x0c1020, ambient: 0x2a3550, neon: [0xff2d95, 0x00e5ff, 0xffb300, 0x7cff5a, 0xa05cff], sideL: 'park', sideR: 'city' },
+  { id: 'miami', name: 'Маямі', bg: 0x1a0b2e, fog: 0x2a1240, building: 0x1a1030, ambient: 0x3a2050, neon: [0xff2d95, 0x00e5ff, 0xff6ec7, 0xa05cff, 0xffd166], sideL: 'palms', sideR: 'sea' },
+  { id: 'tokyo', name: 'Токіо', bg: 0x0a0510, fog: 0x150818, building: 0x140a16, ambient: 0x301525, neon: [0xff2233, 0xffffff, 0xff66aa, 0x33ddff, 0xffd400], sideL: 'city', sideR: 'city' },
+  { id: 'vegas', name: 'Вегас', bg: 0x0d0a04, fog: 0x1a1408, building: 0x14110a, ambient: 0x352a10, neon: [0xffd400, 0xffae42, 0xff5e5e, 0x00e5ff, 0xff2d95], sideL: 'casino', sideR: 'casino' },
 ];
+
+// Active theme, set before buildings are first styled (avoids TDZ).
+let activeCity: CityTheme = CITIES[0];
+
+function sideTerrain(side: number): Terrain {
+  return side < 0 ? activeCity.sideL : activeCity.sideR;
+}
 
 const LANES = [-2.4, -0.8, 0.8, 2.4];
 const ROAD_HALF = 4.4;
@@ -264,8 +277,19 @@ const BSPACE = 9;
 const buildings: Building[] = [];
 const perSide = Math.ceil((VIEW_AHEAD + VIEW_BEHIND) / BSPACE) + 1;
 
+const PASTELS = [0xff9ec7, 0xffc6e0, 0x9fe0d0, 0xa0d8ff, 0xffe0a0];
+
 function styleBuilding(b: Building): void {
-  const h = 9 + Math.random() * 32;
+  const terrain = sideTerrain(b.side);
+  // Nature / water sides have no skyscrapers.
+  if (terrain === 'park' || terrain === 'sea') {
+    b.group.visible = false;
+    return;
+  }
+  b.group.visible = true;
+  const casino = terrain === 'casino';
+  const palms = terrain === 'palms';
+  const h = palms ? 6 + Math.random() * 7 : casino ? 8 + Math.random() * 12 : 9 + Math.random() * 32;
   const w = 4 + Math.random() * 4;
   const d = 5 + Math.random() * 4;
   b.body.scale.set(w, h, d);
@@ -276,11 +300,12 @@ function styleBuilding(b: Building): void {
   mat.map = tex;
   mat.emissiveMap = tex;
   mat.emissive = new THREE.Color(0xffffff);
-  mat.emissiveIntensity = 0.45;
+  mat.emissiveIntensity = casino ? 0.85 : 0.45;
+  mat.color.setHex(palms ? PASTELS[(Math.random() * PASTELS.length) | 0] : casino ? 0x2a2110 : activeCity.building);
   mat.needsUpdate = true;
   b.roof.scale.set(w * 0.55, 1.4, d * 0.55);
   b.roof.position.y = h + 0.7;
-  const hasAnt = Math.random() < 0.5;
+  const hasAnt = !palms && Math.random() < 0.5;
   b.ant.visible = hasAnt;
   b.tip.visible = hasAnt;
   if (hasAnt) {
@@ -289,7 +314,7 @@ function styleBuilding(b: Building): void {
     b.ant.position.y = h + 1.4 + al / 2;
     b.tip.position.y = h + 1.4 + al;
   }
-  b.lat = b.side * (7 + Math.random() * 4);
+  b.lat = b.side * (palms ? 9 + Math.random() * 3 : 7 + Math.random() * 4);
 }
 
 for (let i = 0; i < perSide * 2; i++) {
@@ -361,6 +386,86 @@ for (let i = 0; i < dashCount; i++) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.04, 2.4), laneMat);
   scene.add(m);
   dashes.push({ mesh: m, s: i * DASH_SPACE });
+}
+
+// ===========================================================================
+// Side nature (trees / palms) + water (lake / sea)
+// ===========================================================================
+
+function buildTree(): THREE.Group {
+  const t = new THREE.Group();
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.22, 0.3, 2.4, 6),
+    new THREE.MeshStandardMaterial({ color: 0x4a3722, roughness: 0.9 }),
+  );
+  trunk.position.y = 1.2;
+  t.add(trunk);
+  const folMat = new THREE.MeshStandardMaterial({ color: 0x2f6e3a, roughness: 0.85, emissive: 0x0c2614, emissiveIntensity: 0.35 });
+  for (const [oy, r] of [[3.0, 1.7], [3.9, 1.3], [4.6, 0.9]] as [number, number][]) {
+    const blob = new THREE.Mesh(new THREE.SphereGeometry(r, 8, 7), folMat);
+    blob.position.y = oy;
+    t.add(blob);
+  }
+  return t;
+}
+
+function buildPalm(): THREE.Group {
+  const p = new THREE.Group();
+  const trunk = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.16, 0.28, 6.5, 6),
+    new THREE.MeshStandardMaterial({ color: 0x6b4f2a, roughness: 0.9 }),
+  );
+  trunk.position.y = 3.25;
+  trunk.rotation.z = 0.08;
+  p.add(trunk);
+  const frondMat = new THREE.MeshStandardMaterial({ color: 0x2f9e5a, roughness: 0.8, emissive: 0x0f3a20, emissiveIntensity: 0.3 });
+  for (let i = 0; i < 7; i++) {
+    const frond = new THREE.Mesh(new THREE.ConeGeometry(0.4, 3.2, 4), frondMat);
+    const a = (i / 7) * Math.PI * 2;
+    frond.position.set(Math.cos(a) * 1.1, 6.4, Math.sin(a) * 1.1);
+    frond.rotation.z = Math.cos(a) * 1.2;
+    frond.rotation.x = Math.sin(a) * 1.2;
+    p.add(frond);
+  }
+  return p;
+}
+
+interface NatureProp { group: THREE.Group; tree: THREE.Group; palm: THREE.Group; s: number; }
+const natureProps: NatureProp[] = [];
+const NAT_SPACE = 10;
+const natCount = Math.ceil((VIEW_AHEAD + VIEW_BEHIND) / NAT_SPACE) + 1;
+for (let i = 0; i < natCount; i++) {
+  const group = new THREE.Group();
+  const tree = buildTree();
+  const palm = buildPalm();
+  tree.visible = false;
+  palm.visible = false;
+  group.add(tree, palm);
+  scene.add(group);
+  natureProps.push({ group, tree, palm, s: i * NAT_SPACE });
+}
+
+const waterOpts: THREE.MeshStandardMaterialParameters = {
+  roughness: 0.14,
+  metalness: 0.9,
+  emissive: 0x0a2238,
+  emissiveIntensity: 0.7,
+};
+const waterL = makeRibbon(0x0b1f33, waterOpts);
+const waterR = makeRibbon(0x0b1f33, waterOpts);
+waterL.mesh.visible = false;
+waterR.mesh.visible = false;
+
+function updateWater(rb: ReturnType<typeof makeRibbon>, terrain: Terrain, side: number, sA: number, sB: number): void {
+  if (terrain !== 'sea' && terrain !== 'park') {
+    rb.mesh.visible = false;
+    return;
+  }
+  rb.mesh.visible = true;
+  const near = terrain === 'park' ? ROAD_HALF + 9 : ROAD_HALF + 4;
+  const far = terrain === 'park' ? ROAD_HALF + 26 : ROAD_HALF + 70;
+  if (side < 0) fillRibbon(rb, -far, -near, -0.05, sA, sB);
+  else fillRibbon(rb, near, far, -0.05, sA, sB);
 }
 
 // ===========================================================================
@@ -569,12 +674,9 @@ function spawnCoins(): void {
 
 const LM_SPACING = 130;
 const LM_AHEAD = 36;
+// Central landmark towers removed by request — the avenue is lined with
+// per-city side scenery (park/lake, palms/sea, casinos) instead.
 const landmarks: { group: THREE.Group; s: number }[] = [];
-for (let i = 0; i < 2; i++) {
-  const g = new THREE.Group();
-  scene.add(g);
-  landmarks.push({ group: g, s: 70 + i * LM_SPACING });
-}
 
 function clearGroup(g: THREE.Group): void {
   while (g.children.length) g.remove(g.children[0]);
@@ -698,12 +800,18 @@ function buildLandmark(g: THREE.Group, city: CityTheme): void {
 // ===========================================================================
 
 function applyCity(city: CityTheme): void {
+  activeCity = city;
   scene.background = new THREE.Color(city.bg);
   scene.fog!.color.setHex(city.fog);
   ambient.color.setHex(city.ambient);
-  for (const b of buildings) (b.body.material as THREE.MeshStandardMaterial).color.setHex(city.building);
+  for (const b of buildings) styleBuilding(b);
   for (let i = 0; i < neonLights.length; i++) neonLights[i].light.color.setHex(city.neon[i % city.neon.length]);
   for (let i = 0; i < billboards.length; i++) (billboards[i].mesh.material as THREE.MeshBasicMaterial).color.setHex(city.neon[i % city.neon.length]);
+  const natKind: 'tree' | 'palm' | 'none' = city.sideL === 'park' ? 'tree' : city.sideL === 'palms' ? 'palm' : 'none';
+  for (const np of natureProps) {
+    np.tree.visible = natKind === 'tree';
+    np.palm.visible = natKind === 'palm';
+  }
   for (const lm of landmarks) buildLandmark(lm.group, city);
 }
 let currentCity = CITIES[0];
@@ -1006,6 +1114,8 @@ function animate(): void {
   }
   for (const bb of billboards) {
     if (bb.s < playerS - VIEW_BEHIND) { bb.s += billboards.length * 16; }
+    const ter = sideTerrain(bb.side);
+    bb.mesh.visible = ter !== 'park' && ter !== 'sea';
     const p = worldOf(bb.s, bb.side * 6.4, 4 + ((bb.s * 7) % 9));
     bb.mesh.position.set(p.x, p.y, p.z);
     bb.mesh.rotation.y = headingY(bb.s) + (bb.side < 0 ? Math.PI / 2 : -Math.PI / 2);
@@ -1013,6 +1123,10 @@ function animate(): void {
   for (const lp of lamps) {
     if (lp.s < playerS - VIEW_BEHIND) lp.s += lamps.length * LSPACE;
     place(lp.group, lp.s, lp.side * 5.2, 0);
+  }
+  for (const np of natureProps) {
+    if (np.s < playerS - VIEW_BEHIND) np.s += natureProps.length * NAT_SPACE;
+    place(np.group, np.s, -(ROAD_HALF + 5 + (np.s % 3)), 0);
   }
   for (const dsh of dashes) {
     if (dsh.s < playerS - VIEW_BEHIND) dsh.s += dashes.length * DASH_SPACE;
@@ -1037,6 +1151,8 @@ function animate(): void {
   fillRibbon(road, -ROAD_HALF, ROAD_HALF, 0.02, sA, sB);
   fillRibbon(sidewalkL, -ROAD_HALF - 2.6, -ROAD_HALF, 0.18, sA, sB);
   fillRibbon(sidewalkR, ROAD_HALF, ROAD_HALF + 2.6, 0.18, sA, sB);
+  updateWater(waterL, activeCity.sideL, -1, sA, sB);
+  updateWater(waterR, activeCity.sideR, 1, sA, sB);
 
   // Police flash.
   if (player.policeLights) {
