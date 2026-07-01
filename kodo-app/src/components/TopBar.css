@@ -46,11 +46,26 @@
   gap: 10px;
   flex-shrink: 1;
   min-width: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
 }
 
-.topbar-right::-webkit-scrollbar {
+.more-toggle {
+  display: none;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.more-backdrop {
+  display: none;
+}
+
+.more-sheet {
   display: none;
 }
 
@@ -66,23 +81,88 @@
   }
 
   .topbar-title {
-    max-width: 34vw;
+    max-width: 50vw;
   }
 
-  .model-pill {
-    padding: 6px 8px;
-    font-size: 11px;
-    white-space: nowrap;
-  }
-
+  /* On phones the model pills + sandbox button don't fit without
+     horizontal scrolling, so they collapse into a single "more" menu.
+     !important guards against source-order clashes with the base
+     .model-switch/.sandbox-toggle display:flex rules defined below. */
+  .model-switch,
   .sandbox-toggle {
-    padding: 7px 8px;
-    font-size: 0;
-    flex-shrink: 0;
+    display: none !important;
   }
 
-  .sandbox-icon {
-    font-size: 13px;
+  .more-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .more-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 7, 11, 0.6);
+    z-index: 45;
+  }
+
+  .more-sheet {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 62px;
+    right: 10px;
+    width: 220px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px;
+    z-index: 46;
+    gap: 2px;
+  }
+
+  .more-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: 6px 8px 2px;
+  }
+
+  .more-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 9px 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .more-item:hover {
+    background: var(--bg-elevated);
+  }
+
+  .more-item.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .more-item-sub {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  .more-divider {
+    height: 1px;
+    background: var(--border-soft);
+    margin: 6px 0;
   }
 }
 
