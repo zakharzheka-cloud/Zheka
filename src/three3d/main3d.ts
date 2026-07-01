@@ -610,19 +610,19 @@ function setPlayerCar(style: CarStyle): void {
 
 const TRAFFIC_COLORS = [0xd23a3a, 0x3a6bff, 0xedeef2, 0x9aa3b3, 0x3fbf7a, 0xe8b53a];
 const TRAFFIC_KINDS: CarKind[] = ['sedan', 'sedan', 'van', 'sport', 'classic'];
-interface Traffic { car: Car; active: boolean; own: number; s: number; lat: number; }
+interface Traffic { car: Car; active: boolean; own: number; s: number; lat: number; targetLat: number; changeTimer: number; }
 const traffic: Traffic[] = [];
 for (let i = 0; i < 10; i++) {
   const style: CarStyle = { id: 't', name: 't', color: TRAFFIC_COLORS[i % TRAFFIC_COLORS.length], kind: TRAFFIC_KINDS[i % TRAFFIC_KINDS.length] };
   const car = buildCar(style, false);
   car.group.visible = false;
   scene.add(car.group);
-  traffic.push({ car, active: false, own: 0, s: 0, lat: 0 });
+  traffic.push({ car, active: false, own: 0, s: 0, lat: 0, targetLat: 0, changeTimer: 0 });
 }
 
 function laneFree(lat: number): boolean {
   for (const t of traffic) {
-    if (t.active && Math.abs(t.lat - lat) < 0.1 && t.s > playerS + 55) return false;
+    if (t.active && t.s > playerS + 55 && (Math.abs(t.lat - lat) < 0.1 || Math.abs(t.targetLat - lat) < 0.1)) return false;
   }
   return true;
 }
@@ -634,8 +634,20 @@ function spawnTraffic(): void {
   t.active = true;
   t.own = 4 + Math.random() * 10;
   t.lat = free[Math.floor(Math.random() * free.length)];
+  t.targetLat = t.lat;
+  t.changeTimer = 2.5 + Math.random() * 4;
   t.s = playerS + 95;
   t.car.group.visible = true;
+}
+
+// A traffic car may merge into an adjacent lane if nothing else is already
+// there or heading there, keeping the road from feeling like static rails.
+function trafficLaneClear(self: Traffic, lane: number): boolean {
+  for (const t of traffic) {
+    if (t === self || !t.active) continue;
+    if (Math.abs(t.s - self.s) < 18 && (Math.abs(t.lat - lane) < 0.1 || Math.abs(t.targetLat - lane) < 0.1)) return false;
+  }
+  return true;
 }
 
 // ===========================================================================
@@ -1210,7 +1222,27 @@ function animate(): void {
     if (!t.active) continue;
     t.s += t.own * dt;
     if (t.s < playerS - 14) { t.active = false; t.car.group.visible = false; continue; }
+
+    // Occasionally merge into a free adjacent lane, but only well ahead of
+    // the player so a swerve never causes a cheap last-second hit.
+    if (state === 'playing' && t.s - playerS > 20) {
+      t.changeTimer -= dt;
+      if (t.changeTimer <= 0) {
+        t.changeTimer = 2.5 + Math.random() * 4;
+        if (Math.random() < 0.35) {
+          const idx = LANES.indexOf(t.targetLat);
+          const options = [idx - 1, idx + 1]
+            .filter((i) => i >= 0 && i < LANES.length)
+            .map((i) => LANES[i])
+            .filter((lane) => trafficLaneClear(t, lane));
+          if (options.length) t.targetLat = options[Math.floor(Math.random() * options.length)];
+        }
+      }
+    }
+    t.lat += (t.targetLat - t.lat) * Math.min(1, dt * 2.2);
+
     place(t.car.group, t.s, t.lat, 0);
+    t.car.group.rotation.z = (t.targetLat - t.lat) * -0.18;
     if (state === 'playing' && invuln <= 0) {
       if (Math.abs(t.s - playerS) < 2.6 && Math.abs(t.lat - playerLat) < 1.6) crash();
     }
