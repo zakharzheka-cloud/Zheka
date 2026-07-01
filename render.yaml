@@ -1,0 +1,21 @@
+services:
+  - name: kodo-backend
+    type: web
+    runtime: node
+    plan: free
+    rootDir: kodo-app/server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  - name: kodo-frontend
+    type: web
+    runtime: static
+    rootDir: kodo-app
+    buildCommand: npm install && npm run build
+    staticPublishPath: kodo-app/dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
