@@ -19,4 +19,4 @@ services:
     staticPublishPath: kodo-app/dist
     envVars:
       - key: VITE_API_URL
-        sync: false
+        value: https://kodo-backend-m363.onrender.com
