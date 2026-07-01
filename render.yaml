@@ -1,0 +1,22 @@
+services:
+  - name: kodo-backend
+    type: web
+    runtime: node
+    plan: free
+    autoDeploy: false
+    rootDir: kodo-app/server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+  - name: kodo-frontend
+    type: web
+    runtime: static
+    autoDeploy: false
+    buildCommand: cd kodo-app && npm install && npm run build
+    staticPublishPath: kodo-app/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://kodo-backend-m363.onrender.com

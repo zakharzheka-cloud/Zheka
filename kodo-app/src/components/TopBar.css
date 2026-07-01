@@ -1,0 +1,219 @@
+.topbar {
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 20px;
+  border-bottom: 1px solid var(--border-soft);
+  background: var(--bg-app);
+  overflow: hidden;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.topbar-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+
+.menu-toggle {
+  display: none;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: 15px;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 1;
+  min-width: 0;
+}
+
+.more-toggle {
+  display: none;
+  flex-shrink: 0;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.more-backdrop {
+  display: none;
+}
+
+.more-sheet {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .topbar {
+    padding: 0 10px;
+  }
+
+  .menu-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .topbar-title {
+    max-width: 50vw;
+  }
+
+  /* On phones the model pills + sandbox button don't fit without
+     horizontal scrolling, so they collapse into a single "more" menu.
+     !important guards against source-order clashes with the base
+     .model-switch/.sandbox-toggle display:flex rules defined below. */
+  .model-switch,
+  .sandbox-toggle {
+    display: none !important;
+  }
+
+  .more-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .more-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(6, 7, 11, 0.6);
+    z-index: 45;
+  }
+
+  .more-sheet {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 62px;
+    right: 10px;
+    width: 220px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 8px;
+    z-index: 46;
+    gap: 2px;
+  }
+
+  .more-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    padding: 6px 8px 2px;
+  }
+
+  .more-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-size: 13.5px;
+    font-weight: 500;
+    padding: 9px 8px;
+    border-radius: var(--radius-sm);
+  }
+
+  .more-item:hover {
+    background: var(--bg-elevated);
+  }
+
+  .more-item.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .more-item-sub {
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-muted);
+  }
+
+  .more-divider {
+    height: 1px;
+    background: var(--border-soft);
+    margin: 6px 0;
+  }
+}
+
+.model-switch {
+  display: flex;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px;
+  gap: 2px;
+}
+
+.model-pill {
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 999px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.model-pill.active {
+  background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%);
+  color: #0b0d13;
+}
+
+.sandbox-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  font-weight: 500;
+  padding: 7px 12px;
+  border-radius: var(--radius-sm);
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.sandbox-toggle:hover {
+  color: var(--text-primary);
+}
+
+.sandbox-toggle.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.sandbox-icon {
+  font-size: 11px;
+}

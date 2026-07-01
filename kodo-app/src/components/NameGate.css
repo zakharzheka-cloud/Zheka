@@ -1,0 +1,95 @@
+.name-gate {
+  height: 100vh;
+  height: 100dvh;
+  width: 100vw;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-app);
+  padding: 20px;
+}
+
+.name-gate-card {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.name-gate-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.name-gate-mark {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #0b0d13;
+  font-size: 18px;
+}
+
+.name-gate-brand-text {
+  font-weight: 600;
+  font-size: 20px;
+}
+
+.name-gate-title {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 4px;
+}
+
+.name-gate-subtitle {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 20px;
+}
+
+.name-gate-input {
+  width: 100%;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 15px;
+  color: var(--text-primary);
+  outline: none;
+  margin-bottom: 12px;
+}
+
+.name-gate-input:focus {
+  border-color: var(--accent);
+}
+
+.name-gate-input::placeholder {
+  color: var(--text-muted);
+}
+
+.name-gate-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--accent) 0%, var(--violet) 100%);
+  border: none;
+  border-radius: var(--radius-md);
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #0b0d13;
+  transition: opacity 0.15s ease;
+}
+
+.name-gate-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
