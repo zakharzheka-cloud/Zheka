@@ -8,12 +8,18 @@ interface Props {
   onChangeTier: (tier: Tier) => void;
   sandboxOpen: boolean;
   onToggleSandbox: () => void;
+  onOpenSidebar: () => void;
 }
 
-export default function TopBar({ title, tiers, activeTier, onChangeTier, sandboxOpen, onToggleSandbox }: Props) {
+export default function TopBar({ title, tiers, activeTier, onChangeTier, sandboxOpen, onToggleSandbox, onOpenSidebar }: Props) {
   return (
     <header className="topbar">
-      <div className="topbar-title">{title}</div>
+      <div className="topbar-left">
+        <button className="menu-toggle" onClick={onOpenSidebar} aria-label="Відкрити меню">
+          ☰
+        </button>
+        <div className="topbar-title">{title}</div>
+      </div>
 
       <div className="topbar-right">
         <div className="model-switch">

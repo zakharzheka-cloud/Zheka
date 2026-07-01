@@ -7,6 +7,15 @@
   flex-direction: column;
 }
 
+@media (max-width: 768px) {
+  .sandbox-panel {
+    position: fixed;
+    inset: 56px 0 0 0;
+    width: 100%;
+    z-index: 40;
+  }
+}
+
 .sandbox-header {
   display: flex;
   align-items: center;

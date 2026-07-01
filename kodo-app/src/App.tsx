@@ -18,6 +18,7 @@ export default function App() {
   const [sandbox, setSandbox] = useState<{ code: string; language: string } | null>(null);
   const [sandboxOpen, setSandboxOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const active = conversations.find((c) => c.id === activeId)!;
   const activeTierInfo = TIERS.find((t) => t.id === tier)!;
@@ -86,6 +87,8 @@ export default function App() {
         onNewChat={newChat}
         tier={activeTierInfo}
         onOpenUpgrade={() => setUpgradeOpen(true)}
+        open={sidebarOpen}
+        onClose={() => setSidebarOpen(false)}
       />
 
       <div className="main-column">
@@ -96,6 +99,7 @@ export default function App() {
           onChangeTier={setTier}
           sandboxOpen={sandboxOpen}
           onToggleSandbox={() => setSandboxOpen((v) => !v)}
+          onOpenSidebar={() => setSidebarOpen(true)}
         />
         <div className="workspace">
           <ChatPanel messages={active.messages} loading={loading} onSend={sendMessage} onRunCode={runCode} />

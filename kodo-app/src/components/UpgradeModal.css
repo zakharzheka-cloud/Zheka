@@ -56,6 +56,18 @@
   gap: 12px;
 }
 
+@media (max-width: 640px) {
+  .modal {
+    padding: 18px;
+    max-height: calc(100vh - 60px);
+    overflow-y: auto;
+  }
+
+  .tier-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tier-option {
   position: relative;
   background: var(--bg-elevated);
