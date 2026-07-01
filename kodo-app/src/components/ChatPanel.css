@@ -46,29 +46,6 @@
   margin-top: -12px;
 }
 
-.empty-suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 8px;
-  max-width: 460px;
-}
-
-.suggestion-chip {
-  background: var(--bg-panel);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-  padding: 9px 14px;
-  border-radius: 999px;
-  font-size: 13px;
-  transition: border-color 0.15s ease, color 0.15s ease;
-}
-
-.suggestion-chip:hover {
-  border-color: var(--accent);
-  color: var(--text-primary);
-}
-
 .composer {
   max-width: 820px;
   width: calc(100% - 56px);

@@ -11,13 +11,6 @@ interface Props {
   onRunCode: (code: string, language: string) => void;
 }
 
-const SUGGESTIONS = [
-  'Поясни, що таке рекурсія',
-  'Напиши гру "Змійка" на Python',
-  'Що таке масиви у JavaScript?',
-  'Створи просту HTML-сторінку з формою',
-];
-
 export default function ChatPanel({ messages, loading, username, onSend, onRunCode }: Props) {
   const [draft, setDraft] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
@@ -40,13 +33,6 @@ export default function ChatPanel({ messages, loading, username, onSend, onRunCo
           <div className="empty-state">
             <div className="empty-title">Вітаю, {username}!</div>
             <div className="empty-subtitle">Чим допомогти?</div>
-            <div className="empty-suggestions">
-              {SUGGESTIONS.map((s) => (
-                <button key={s} className="suggestion-chip" onClick={() => onSend(s)}>
-                  {s}
-                </button>
-              ))}
-            </div>
           </div>
         ) : (
           messages.map((m) => <MessageBubble key={m.id} message={m} onRunCode={onRunCode} />)
