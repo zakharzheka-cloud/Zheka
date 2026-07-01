@@ -7,7 +7,7 @@ const PORT = process.env.PORT || 8787;
 const apiKey = process.env.ANTHROPIC_API_KEY;
 
 if (!apiKey) {
-  console.warn('ANTHROPIC_API_KEY не задано — /api/chat відповідатиме 500 до налаштування ключа в server/.env');
+  console.warn('ANTHROPIC_API_KEY не задано — /api/chat відповідатиме демо-текстом до налаштування ключа в server/.env');
 }
 
 const anthropic = apiKey ? new Anthropic({ apiKey }) : null;
@@ -35,6 +35,29 @@ const BLOCKED_PATTERNS = [
   /обійти\s+(захист|ліцензію|активацію)/i,
 ];
 
+// Used only while ANTHROPIC_API_KEY is not configured, so a demo never shows
+// a raw error screen. Clearly labeled — not a substitute for the real API.
+function fallbackReply(question) {
+  const note =
+    '_(Демо-режим: ключ ANTHROPIC_API_KEY ще не підключено на сервері — це заготовлена відповідь, а не жива відповідь AI.)_\n\n';
+  if (/python|javascript|typescript|java\b|c\+\+|html|css|код|програм/i.test(question)) {
+    return (
+      note +
+      'Із задоволенням допоможу з програмуванням! Додай ANTHROPIC_API_KEY на сервері, щоб отримувати справжні відповіді з поясненнями коду та прикладами.'
+    );
+  }
+  if (/погод/i.test(question)) {
+    return (
+      note +
+      'Поки що не можу перевірити погоду наживо — для цього потрібен підключений ключ і веб-пошук. Щойно ключ буде доданий, зможу шукати актуальну інформацію в інтернеті.'
+    );
+  }
+  return (
+    note +
+    'Дякую за питання! Щойно на сервері буде налаштований ANTHROPIC_API_KEY, я зможу відповідати на будь-які запитання з реальним інтелектом і пошуком в інтернеті.'
+  );
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json({ limit: '1mb' }));
@@ -56,7 +79,10 @@ app.post('/api/chat', async (req, res) => {
   }
 
   if (!anthropic) {
-    return res.status(500).json({ error: 'ANTHROPIC_API_KEY не налаштований на сервері (server/.env)' });
+    return res.json({
+      text: fallbackReply(lastUserText),
+      citations: [],
+    });
   }
 
   try {
