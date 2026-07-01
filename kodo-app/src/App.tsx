@@ -4,13 +4,17 @@ import TopBar from './components/TopBar';
 import ChatPanel from './components/ChatPanel';
 import SandboxPanel from './components/SandboxPanel';
 import UpgradeModal from './components/UpgradeModal';
+import NameGate from './components/NameGate';
 import { mockConversations } from './data/mockData';
 import { sendChat } from './api';
 import { TIERS } from './types';
 import type { Conversation, Message, Tier } from './types';
 import './App.css';
 
+const USERNAME_KEY = 'kodo_username';
+
 export default function App() {
+  const [username, setUsername] = useState<string | null>(() => localStorage.getItem(USERNAME_KEY));
   const [conversations, setConversations] = useState<Conversation[]>(mockConversations);
   const [activeId, setActiveId] = useState(mockConversations[0].id);
   const [tier, setTier] = useState<Tier>('trial');
@@ -37,11 +41,12 @@ export default function App() {
     );
   }
 
-  async function sendMessage(text: string) {
-    const conversationId = activeId;
+  async function sendMessage(text: string, targetId?: string) {
+    const conversationId = targetId ?? activeId;
     const userMsg: Message = { id: crypto.randomUUID(), role: 'user', text, createdAt: Date.now() };
-    const history = [...active.messages, userMsg];
-    appendMessage(conversationId, userMsg, text.slice(0, 40));
+    const priorMessages = targetId ? [] : active.messages;
+    const history = [...priorMessages, userMsg];
+    appendMessage(conversationId, userMsg, targetId ? undefined : text.slice(0, 40));
 
     setLoading(true);
     try {
@@ -73,9 +78,27 @@ export default function App() {
     setActiveId(id);
   }
 
+  function startLanguageChat(language: string) {
+    const id = crypto.randomUUID();
+    setConversations((prev) => [{ id, title: language, messages: [] }, ...prev]);
+    setActiveId(id);
+    sendMessage(`Хочу вивчати ${language}. З чого почати?`, id);
+  }
+
   function runCode(code: string, language: string) {
     setSandbox({ code, language });
     setSandboxOpen(true);
+  }
+
+  if (!username) {
+    return (
+      <NameGate
+        onSubmit={(name) => {
+          localStorage.setItem(USERNAME_KEY, name);
+          setUsername(name);
+        }}
+      />
+    );
   }
 
   return (
@@ -85,6 +108,7 @@ export default function App() {
         activeId={activeId}
         onSelect={setActiveId}
         onNewChat={newChat}
+        onSelectLanguage={startLanguageChat}
         tier={activeTierInfo}
         onOpenUpgrade={() => setUpgradeOpen(true)}
         open={sidebarOpen}
@@ -102,7 +126,13 @@ export default function App() {
           onOpenSidebar={() => setSidebarOpen(true)}
         />
         <div className="workspace">
-          <ChatPanel messages={active.messages} loading={loading} onSend={sendMessage} onRunCode={runCode} />
+          <ChatPanel
+            messages={active.messages}
+            loading={loading}
+            username={username}
+            onSend={sendMessage}
+            onRunCode={runCode}
+          />
           {sandboxOpen && (
             <SandboxPanel
               code={sandbox?.code ?? ''}

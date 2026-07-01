@@ -86,7 +86,14 @@
   letter-spacing: 0.2px;
 }
 
-.new-chat-btn {
+.top-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.new-chat-btn,
+.code-btn {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -100,7 +107,8 @@
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.new-chat-btn:hover {
+.new-chat-btn:hover,
+.code-btn:hover {
   background: #262a38;
   border-color: var(--accent);
 }
@@ -108,6 +116,39 @@
 .plus {
   color: var(--accent);
   font-weight: 700;
+}
+
+.code-icon {
+  color: var(--violet);
+  font-weight: 700;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 12px;
+}
+
+.language-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px;
+}
+
+.language-item {
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+
+.language-item:hover {
+  background: var(--bg-panel);
+  color: var(--text-primary);
 }
 
 .conversation-list {

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Conversation, TierInfo } from '../types';
 import './Sidebar.css';
 
@@ -6,13 +7,28 @@ interface Props {
   activeId: string;
   onSelect: (id: string) => void;
   onNewChat: () => void;
+  onSelectLanguage: (language: string) => void;
   tier: TierInfo;
   onOpenUpgrade: () => void;
   open: boolean;
   onClose: () => void;
 }
 
-export default function Sidebar({ conversations, activeId, onSelect, onNewChat, tier, onOpenUpgrade, open, onClose }: Props) {
+const LANGUAGES = ['Python', 'JavaScript', 'TypeScript', 'Java', 'C++', 'C#', 'Go', 'PHP'];
+
+export default function Sidebar({
+  conversations,
+  activeId,
+  onSelect,
+  onNewChat,
+  onSelectLanguage,
+  tier,
+  onOpenUpgrade,
+  open,
+  onClose,
+}: Props) {
+  const [codeOpen, setCodeOpen] = useState(false);
+
   return (
     <>
       {open && <div className="sidebar-backdrop" onClick={onClose} />}
@@ -25,15 +41,39 @@ export default function Sidebar({ conversations, activeId, onSelect, onNewChat, 
           </button>
         </div>
 
-        <button
-          className="new-chat-btn"
-          onClick={() => {
-            onNewChat();
-            onClose();
-          }}
-        >
-          <span className="plus">+</span> Новий чат
-        </button>
+        <div className="top-actions">
+          <button
+            className="new-chat-btn"
+            onClick={() => {
+              onNewChat();
+              onClose();
+            }}
+          >
+            <span className="plus">+</span> Новий чат
+          </button>
+
+          <button className="code-btn" onClick={() => setCodeOpen((v) => !v)}>
+            <span className="code-icon">{'</>'}</span> Code
+          </button>
+
+          {codeOpen && (
+            <div className="language-list">
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang}
+                  className="language-item"
+                  onClick={() => {
+                    onSelectLanguage(lang);
+                    setCodeOpen(false);
+                    onClose();
+                  }}
+                >
+                  {lang}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="conversation-list">
           <div className="list-label">Розмови</div>
