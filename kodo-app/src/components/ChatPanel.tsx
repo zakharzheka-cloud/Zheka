@@ -17,6 +17,14 @@ const SUGGESTIONS = [
   'Створи просту HTML-сторінку з формою',
 ];
 
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 6) return 'Доброї ночі';
+  if (hour < 12) return 'Доброго ранку';
+  if (hour < 18) return 'Доброго дня';
+  return 'Доброго вечора';
+}
+
 export default function ChatPanel({ messages, loading, onSend, onRunCode }: Props) {
   const [draft, setDraft] = useState('');
   const listRef = useRef<HTMLDivElement>(null);
@@ -37,7 +45,8 @@ export default function ChatPanel({ messages, loading, onSend, onRunCode }: Prop
       <div className="message-list" ref={listRef}>
         {messages.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-title">Чим допомогти?</div>
+            <div className="empty-title">{greeting()}!</div>
+            <div className="empty-subtitle">Чим допомогти?</div>
             <div className="empty-suggestions">
               {SUGGESTIONS.map((s) => (
                 <button key={s} className="suggestion-chip" onClick={() => onSend(s)}>

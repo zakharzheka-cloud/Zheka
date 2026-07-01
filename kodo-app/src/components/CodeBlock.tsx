@@ -27,7 +27,7 @@ export default function CodeBlock({ language, code, onRun }: Props) {
       <SyntaxHighlighter
         language={language || 'text'}
         style={oneDark}
-        customStyle={{ margin: 0, borderRadius: '0 0 10px 10px', fontSize: '13px', padding: '14px' }}
+        customStyle={{ margin: 0, borderRadius: '0 0 10px 10px', fontSize: '13px', padding: '14px', overflowX: 'auto', maxWidth: '100%' }}
       >
         {code}
       </SyntaxHighlighter>

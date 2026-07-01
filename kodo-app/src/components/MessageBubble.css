@@ -3,6 +3,7 @@
   gap: 12px;
   padding: 4px 0;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .message-row.user {
@@ -34,10 +35,13 @@
 
 .bubble {
   max-width: 680px;
+  min-width: 0;
+  flex-shrink: 1;
   padding: 12px 16px;
   border-radius: var(--radius-lg);
   font-size: 14.5px;
   line-height: 1.6;
+  overflow-wrap: break-word;
 }
 
 .bubble p {
